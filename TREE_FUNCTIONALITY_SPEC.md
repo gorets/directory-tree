@@ -5,6 +5,8 @@
 ### Основная цель
 Реализовать иерархическое дерево с чекбоксами, которое синхронизирует состояние выбора с конфигом в виде двух массивов: `enabled` и `disabled`.
 
+**Ключевая особенность:** Конфиг содержит только **явно выбранные узлы**, потомки наследуют состояние от parent'ов автоматически.
+
 ### Ключевые характеристики
 
 #### 1. **Структура данных дерева**
@@ -64,7 +66,7 @@ config = {
 #### 6. **Синхронизация конфига**
 
 **Генерация конфига из UI состояния:**
-- Должны в конфиге появляться **только явно выбранные узлы** (те, что кликал пользователь)
+- Должны в конфиге появляться **только явно выбранные узлы** (те, что кликал пользователь ИЛИ загружены из конфига)
 - **НЕ должны включаться** автоматические потомки (которые inherited от parent)
 - Конфиг должен быть **минимальным** - содержать только необходимые ID для восстановления состояния
 
@@ -74,30 +76,39 @@ config = {
 - Элементы из `disabled` становятся unchecked
 - Их потомки (кроме явно enabled) автоматически unchecked
 
-#### 7. **Критический нюанс: различие между явными и унаследованными**
+#### 7. **Отслеживание явных действий пользователя**
 
-Нужно различать:
+Компонент различает:
 
 ```typescript
-// Явно выбранные (должны быть в конфиге)
-explicitlyChecked = {
-  "30277679"  // пользователь кликнул на этот элемент
+// Явные действия пользователя (должны быть в конфиге)
+explicitActions = Map<itemId, 'enabled' | 'disabled'> {
+  "30277679": 'enabled'    // пользователь кликнул на этот элемент
 }
 
 // Все checked (включая унаследованные)
-allChecked = {
-  "30277679",      // явно selected
+checkedItems = Set<string> {
+  "30277679",      // явно enabled
   "30284778",      // дитя, унаследовало checked от parent
   "30284524",      // дитя, унаследовало checked от parent
   // ... все потомки
 }
 ```
 
-**Конфиг должен содержать ТОЛЬКО `explicitlyChecked`, а НЕ `allChecked`!**
+**Конфиг генерируется ТОЛЬКО из `explicitActions`, а НЕ из `checkedItems`!**
 
-#### 8. **Debouncing**
+#### 8. **Debouncing и батчинг обновлений**
 
-Конфиг не должен меняться при каждом клике - нужен debounce (~100ms) перед вызовом `onConfigChange`
+- Конфиг не должен меняться при каждом клике - используется debounce (~100ms) перед вызовом `onConfigChange`
+- `setState` вызовы батчируются React'ом автоматически (React 17+)
+- В App компоненте используется `setTimeout(..., 0)` для гарантии что `setState` произойдет после рендера дочерних компонентов
+
+#### 9. **Предотвращение React warning'ов**
+
+**"Cannot update a component while rendering a different component":**
+- Все callbacks обернуты в `useCallback` для стабилизации ссылок
+- `onNodeLoad` в App обернута в `useCallback` 
+- Обновления state отложены через `setTimeout(..., 0)` чтобы избежать синхронных обновлений во время рендера
 
 ---
 
@@ -109,6 +120,7 @@ allChecked = {
   ☐ Child 1
   ☐ Child 2
 config: { enabled: [], disabled: [] }
+explicitActions: Map {}
 ```
 
 **Шаг 2: Кликнули на Root**
@@ -117,6 +129,7 @@ config: { enabled: [], disabled: [] }
   ☑ Child 1  ← автоматически checked
   ☑ Child 2  ← автоматически checked
 config: { enabled: ["root-id"], disabled: [] }
+explicitActions: Map { "root-id" → 'enabled' }
 ```
 
 **Шаг 3: Раскрыли Root (загрузили детей с API)**
@@ -128,6 +141,7 @@ config: { enabled: ["root-id"], disabled: [] }
   ☑ Child 2
     ☑ Grandchild 2.1  ← автоматически checked
 config: { enabled: ["root-id"], disabled: [] }  ← БЕЗ изменений!
+explicitActions: Map { "root-id" → 'enabled' }  ← Без изменений!
 ```
 
 **Шаг 4: Откликнули Grandchild 1.1**
@@ -141,6 +155,10 @@ config: { enabled: ["root-id"], disabled: [] }  ← БЕЗ изменений!
 config: {
   enabled: ["root-id"],
   disabled: ["grandchild-1.1-id"]
+}
+explicitActions: Map {
+  "root-id" → 'enabled',
+  "grandchild-1.1-id" → 'disabled'
 }
 ```
 
@@ -171,82 +189,194 @@ interface TreeItem {
 
 ## Основные функции компонента
 
-- **`SelectableTreeWithConfig`** - основной компонент
-  - Props: `items`, `config`, `onConfigChange`, `onNodeLoad`, и т.д.
-  - Должен управлять состоянием checked/unchecked для всех элементов
-  - Генерировать минимальный конфиг при изменениях
-  - Применять приходящий конфиг к UI
+### `SelectableTreeWithConfig<T>` - основной компонент
 
-- **`generateMinimalConfig(items, checkedItems, checkedState, getId)`** - генерирует конфиг
-  - **INPUT:** только явно выбранные элементы (а не все checked)
-  - **OUTPUT:** минимальный конфиг `{ enabled, disabled }`
-  - Должна оптимизировать для частичного выбора
+**Props:**
+- `items: T[]` - плоский массив элементов дерева
+- `config: TreeSyncConfig` - конфиг с `enabled` и `disabled` массивами
+- `onConfigChange: (config: TreeSyncConfig) => void` - callback при изменении конфига
+- `onNodeLoad: (parentId: string) => Promise<void> | void` - загрузить детей для узла
+- `getId: (item: T) => string` - функция для получения ID элемента
+- `getTitle: (item: T) => string` - функция для получения названия элемента
+- Опциональные: `renderTitle`, `expandedNodes`, `onExpandedNodesChange`
+
+**Внутреннее состояние:**
+- `checkedItems: Set<string>` - все checked элементы (включая унаследованные)
+- `explicitActions: Map<string, 'enabled' | 'disabled'>` - только явно выбранные/отмененные узлы
+- `expandedNodes: Set<string>` - раскрытые узлы
+- `loadingNodes: Set<string>` - узлы в процессе загрузки
+
+**Поведение:**
+- Управляет состоянием checked/unchecked для всех элементов
+- Генерирует минимальный конфиг при изменениях
+- Применяет приходящий конфиг к UI
+- Отслеживает какие узлы загружены чтобы избежать дублирующих запросов
+
+### `generateMinimalConfig<T>()` - генерирует конфиг
+
+```typescript
+function generateMinimalConfig<T>(
+  explicitActions: Map<string, 'enabled' | 'disabled'>
+): TreeSyncConfig
+```
+
+**INPUT:** 
+- `explicitActions` - Map явных действий пользователя (только эти элементы в конфиге)
+
+**OUTPUT:** 
+- Минимальный конфиг `{ enabled, disabled }` для восстановления состояния
+
+**Алгоритм:**
+1. Для каждого элемента в `explicitActions`
+2. Если action = 'enabled' → добавить ID в `config.enabled`
+3. Если action = 'disabled' → добавить ID в `config.disabled`
+4. Вернуть `{ enabled, disabled }`
 
 ---
 
-## Критические баги, которые нужно избежать
+## Критические баги и их решения
 
 ### ❌ Bug 1: Добавление всех потомков в конфиг
 **Проблема:** Когда пользователь выбирает parent, в конфиг добавляются ID ВСЕХ его потомков вместо только parent ID.
 
-**Решение:** Отслеживать только явно выбранные узлы, не включать унаследованные от parent.
+**Решение:** 
+- Использовать `explicitActions` Map вместо простого Set
+- Генерировать конфиг ТОЛЬКО из явных действий в `explicitActions`
+- Не рекурсивно добавлять потомков
+
+**Проверка:** При клике на parent в конфиге должен быть только один ID этого parent.
 
 ### ❌ Bug 2: Добавление детей при раскрытии ветки
 **Проблема:** Когда пользователь раскрывает ветку и загружаются дети, они автоматически добавляются в конфиг, даже если не были явно выбраны.
 
-**Решение:** Различать `checkedItems` (все checked, включая унаследованные) и `explicitlyCheckedItems` (только явно выбранные). Конфиг должен генерироваться ТОЛЬКО из `explicitlyCheckedItems`.
+**Решение:** 
+- `explicitActions` содержит ТОЛЬКО то, что пользователь явно выбрал
+- При загрузке дети не добавляются в `explicitActions`
+- Дети наследуют состояние от parent
+
+**Проверка:** При раскрытии ветки конфиг не должен меняться.
 
 ### ❌ Bug 3: Бесконечные обновления конфига
 **Проблема:** При каждом изменении state вызывается `onConfigChange`, что вызывает re-render и новое пересчитывание конфига.
 
 **Решение:** 
-1. Использовать debounce перед вызовом `onConfigChange`
-2. Проверять, действительно ли конфиг изменился перед вызовом callback'а в родительском компоненте
-3. Использовать флаг `isApplyingConfig` для различия изменений от пользователя vs от применения конфига
+1. Debounce 100ms перед вызовом `onConfigChange` в `useEffect`
+2. Проверка изменений конфига в App компоненте перед вызовом `setTreeConfig`
+3. Флаг `isApplyingConfig` для различия изменений от пользователя vs от применения конфига
+4. Генерация конфига отложена на следующий tick через `setTimeout(..., 0)`
 
-### ❌ Bug 4: Дублирование двойной загрузки (React.StrictMode)
+**Проверка:** Конфиг в UI обновляется один раз после действия пользователя, не множество раз.
+
+### ❌ Bug 4: "Cannot update a component while rendering a different component"
+**Проблема:** React warning при обновлении state в App во время рендера SelectableTreeWithConfig.
+
+**Решение:**
+- Обернуть `onNodeLoad` в `useCallback` в App компоненте
+- Использовать `setTimeout(..., 0)` для отложения `setState` вызовов
+- Убедиться что все callbacks стабильны через `useCallback`
+
+**Проверка:** Нет warning'ов в консоли при клике на узел или раскрытии ветки.
+
+### ❌ Bug 5: Дублирование двойной загрузки (React.StrictMode)
 **Проблема:** В режиме разработки React 18 запускает эффекты дважды для проверки побочных эффектов.
 
-**Решение:** Использовать `isMounted` флаг и `AbortController` для очистки при размонтировании.
+**Решение:** 
+- Использовать `loadedParentsRef` Set для отслеживания уже загруженных узлов
+- Использовать `isMounted` флаг в async функциях для предотвращения обновления после unmount
+- Использовать `AbortController` для отмены API запросов
+
+**Проверка:** Никаких дублирующих API запросов даже в StrictMode.
 
 ---
 
 ## Алгоритм генерации минимального конфига
 
 ```
-1. Начать с пустых массивов enabled и disabled
-2. Для каждого item в items:
-   a. Определить его состояние:
-      - fully checked (все дети checked)
-      - fully unchecked (все дети unchecked)
-      - partial/indeterminate (часть детей checked)
-   
-   b. В зависимости от parentState (null для roots):
-      - null (root level):
-        * fully checked → добавить в enabled
-        * fully unchecked → пропустить
-        * partial → оптимизировать (большинство checked → enabled + disable меньшинство)
-      
-      - 'enabled' (parent в enabled):
-        * fully unchecked → добавить в disabled
-        * fully checked → пропустить
-        * partial → оптимизировать
-      
-      - 'disabled' (parent в disabled):
-        * fully checked → добавить в enabled
-        * fully unchecked → пропустить
-        * partial → оптимизировать
+1. Создать пустые массивы enabled и disabled
+
+2. Для каждой записи в explicitActions Map:
+   - Если action = 'enabled' → добавить ID в enabled массив
+   - Если action = 'disabled' → добавить ID в disabled массив
 
 3. Вернуть { enabled, disabled }
 ```
+
+**Это просто!** Все сложные вычисления происходят при применении конфига (вычисление inherited состояния).
 
 ---
 
 ## Реализационные советы
 
-1. **Используйте Set вместо Array** для `checkedItems` и `explicitlyCheckedItems` - O(1) lookup вместо O(n)
-2. **Кешируйте Set'ы** из конфига: `enabledSet = new Set(config.enabled)` в useMemo
-3. **Используйте useRef** для флагов типа `isApplyingConfig` чтобы не вызывать re-render
-4. **Используйте useCallback** для функций, передаваемых как deps в useEffect
-5. **Отслеживайте loadedParents** чтобы не делать дублирующие API запросы
-6. **Используйте плоский filter** для поиска детей вместо рекурсии: `items.filter(it => it.parentId === parentId)`
+1. **Используйте Map для явных действий**
+   - `explicitActions: Map<itemId, 'enabled' | 'disabled'>`
+   - Генерация конфига проще: просто итерировать по entries Map'а
+
+2. **Используйте Set для быстрого поиска**
+   - `checkedItems: Set<string>` - O(1) lookup вместо O(n)
+   - `expandedNodes: Set<string>` - для раскрытых узлов
+   - `loadedParents: Set<string>` - отслеживание загруженных узлов
+
+3. **Кешируйте конфиг Sets в useMemo**
+   - `enabledSet = useMemo(() => new Set(config.enabled), [config.enabled])`
+   - `disabledSet = useMemo(() => new Set(config.disabled), [config.disabled])`
+   - O(1) lookup при применении конфига
+
+4. **Используйте useRef для флагов**
+   - `isApplyingConfig: Ref<boolean>` - не вызывает re-render
+   - `loadedParentsRef: Ref<Set<string>>` - отслеживание загруженных узлов
+
+5. **Используйте useCallback для стабилизации функций**
+   - Все функции передаваемые как props должны быть в `useCallback`
+   - Правильные зависимости чтобы избежать лишних обновлений
+
+6. **Используйте плоский filter для поиска детей**
+   - `items.filter(it => it.parentId === parentId)` - O(n) но просто
+   - Лучше чем рекурсия или вложенная структура
+
+7. **Debounce для onConfigChange**
+   - `setTimeout(() => onConfigChange(...), 100)` в useEffect
+   - Предотвращает множественные обновления при быстрых кликах
+
+8. **setTimeout для setState в callbacks**
+   - `setTimeout(() => setState(...), 0)` гарантирует что setState произойдет после рендера
+   - Избегает React warning'ов о обновлении state во время рендера
+
+---
+
+## Flow диаграмма
+
+```
+User clicks checkbox
+    ↓
+handleToggle (useCallback)
+    ↓
+setCheckedItems + setExplicitActions (batch update)
+    ↓
+Both useEffects trigger
+    ↓
+checkedState recalculates (useMemo)
+    ↓
+Config generation useEffect triggers (debounced 100ms)
+    ↓
+generateMinimalConfig() creates config from explicitActions only
+    ↓
+onConfigChange callback called
+    ↓
+App's updateConfigIfItWasChanged called
+    ↓
+setTimeout(..., 0) → setTreeConfig (after render completes)
+    ↓
+App re-renders with new config
+```
+
+---
+
+## Таблица состояний
+
+| Действие | checkedItems | explicitActions | config.enabled | config.disabled | Результат |
+|----------|--------------|-----------------|----------------|-----------------|-----------|
+| Загрузка конфига | derives from config | из конфига | ["A"] | [] | A и все потомки checked |
+| Клик на A | {A, A.1, A.2} | {"A": "enabled"} | ["A"] | [] | Только A в конфиге |
+| Развернуть A | {A, A.1, A.2} | {"A": "enabled"} | ["A"] | [] | Конфиг не меняется |
+| Клик на A.1 | {A, A.2} | {"A": "enabled", "A.1": "disabled"} | ["A"] | ["A.1"] | A enabled, A.1 явно disabled |
+| Клик на A (второй раз) | {} | {} | [] | [] | Все unchecked |
