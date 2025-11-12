@@ -203,8 +203,9 @@ export function SelectableTreeWithConfig<T>({
       }
       
       debouncedNotifyConfigChange.current = setTimeout(() => {
-        // Only generate config from explicitly checked items, not auto-inherited ones
-        const newConfig = generateMinimalConfig(items, explicitlyCheckedItems, checkedState, getId);
+        // Generate minimal config using all checked items (including inherited ones)
+        // The function will determine which items actually need to be in the config
+        const newConfig = generateMinimalConfig(items, checkedItems, checkedState, getId);
         onConfigChangeRef.current?.(newConfig);
       }, 100);
     }
@@ -350,7 +351,7 @@ export function SelectableTreeWithConfig<T>({
 
 export function generateMinimalConfig<T>(
   items: T[],
-  checkedItems: Set<string>,
+  allCheckedItems: Set<string>,
   checkedState: Map<string, TreeNodeState>,
   getId: (item: T) => string
 ): TreeSyncConfig {
@@ -369,7 +370,7 @@ export function generateMinimalConfig<T>(
         return parentId === itemId;
       });
       if (children.length === 0) {
-        if (checkedItems.has(getId(currentItem))) {
+        if (allCheckedItems.has(getId(currentItem))) {
           enabledCount++;
         } else {
           disabledCount++;
@@ -463,7 +464,12 @@ export function generateMinimalConfig<T>(
     }
   };
 
-  items.forEach(item => processItem(item, null));
+  // Process only root-level items, processItem will recursively handle children
+  const rootItems = items.filter((item: T) => {
+    const parentId = (item as any).parentId;
+    return parentId === 'root' || !parentId;
+  });
+  rootItems.forEach(item => processItem(item, null));
 
   return { enabled, disabled };
 }
