@@ -416,8 +416,10 @@ export function generateMinimalConfig<T>(
         if (counts.enabled <= counts.disabled) {
           children.forEach(child => processItem(child, 'disabled'));
         } else {
+          // Большинство детей enabled - добавляем parent в enabled
           enabled.push(itemId);
-          // Не обрабатываем детей рекурсивно - они наследуют enabled от parent
+          // Рекурсивно обрабатываем детей чтобы найти unchecked детей для disabled
+          children.forEach(child => processItem(child, 'enabled'));
           return;
         }
       }
@@ -431,11 +433,15 @@ export function generateMinimalConfig<T>(
       } else if (isPartial) {
         const counts = countDescendants(item);
         if (counts.disabled <= counts.enabled) {
-          // Большинство дети enabled - не добавляем их в конфиг
+          // Большинство детей enabled - не добавляем item в конфиг
+          // Рекурсивно обрабатываем детей чтобы найти unchecked детей для disabled
+          children.forEach(child => processItem(child, 'enabled'));
           return;
         } else {
+          // Большинство детей disabled - добавляем item в disabled
           disabled.push(itemId);
-          // Не обрабатываем детей рекурсивно
+          // Рекурсивно обрабатываем детей чтобы найти enabled детей
+          children.forEach(child => processItem(child, 'disabled'));
           return;
         }
       }
@@ -452,11 +458,15 @@ export function generateMinimalConfig<T>(
       } else if (isPartial) {
         const counts = countDescendants(item);
         if (counts.enabled <= counts.disabled) {
-          // Большинство дети disabled - не добавляем их в конфиг
+          // Большинство детей disabled - не добавляем item в конфиг
+          // Рекурсивно обрабатываем детей чтобы найти enabled детей
+          children.forEach(child => processItem(child, 'disabled'));
           return;
         } else {
+          // Большинство детей enabled - добавляем item в enabled
           enabled.push(itemId);
-          // Не обрабатываем детей рекурсивно
+          // Рекурсивно обрабатываем детей чтобы найти disabled детей
+          children.forEach(child => processItem(child, 'enabled'));
           return;
         }
       }
