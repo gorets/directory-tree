@@ -1,15 +1,13 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { SelectableTree } from './SelectableTree.js';
 import type { TreeNodeState, TreeSyncConfig, SelectableTreeWithConfigProps } from './types.js';
 import {
-  ROOT_PARENT_ID,
   CONFIG_DEBOUNCE_MS,
   getChildrenFromFlat,
   findItemInFlat,
   getAllDescendantIds,
   toggleItemsRecursively,
   getRootItems,
-  isRootItem,
 } from './helpers.js';
 
 /**
@@ -151,7 +149,7 @@ export function SelectableTreeWithConfig<T>({
           }
 
           // Recursively apply to children
-          const children = getChildrenFromFlat(items, itemId, getId);
+          const children = getChildrenFromFlat(items, itemId);
           applyConfig(children, isEnabled);
         }
       };
@@ -188,7 +186,7 @@ export function SelectableTreeWithConfig<T>({
 
     const calculateState = (item: T): TreeNodeState => {
       const itemId = getId(item);
-      const children = getChildrenFromFlat(items, itemId, getId);
+      const children = getChildrenFromFlat(items, itemId);
 
       // Leaf node: state based on checkedItems
       if (children.length === 0) {
@@ -388,7 +386,7 @@ export function SelectableTreeWithConfig<T>({
    * Dynamic getChildren that looks up children in the flat items array
    */
   const dynamicGetChildren = useCallback(
-    (item: T) => getChildrenFromFlat(items, getId(item), getId),
+    (item: T) => getChildrenFromFlat(items, getId(item)),
     [items, getId]
   );
 

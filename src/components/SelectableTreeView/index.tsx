@@ -5,15 +5,15 @@ export type {
   SelectableTreeProps,
   SelectableTreeWithConfigProps,
   TreeNode
-} from './types.js';
+} from './src/types.js';
 
 // Main components
-export { SelectableTree } from './SelectableTree.js';
+export { SelectableTree } from './src/SelectableTree.js';
 
 export { 
   SelectableTreeWithConfig,
   generateMinimalConfig
-} from './SelectableTreeWithConfig.js';
+} from './src/SelectableTreeWithConfig.js';
 
 // Utility functions
 export {
@@ -21,7 +21,7 @@ export {
   findItemPath,
   findItem,
   getAllEnabledItemIds
-} from './utils.js';
+} from './src/utils.js';
 
 // Helper functions
 export {
@@ -33,4 +33,4 @@ export {
   toggleItemsRecursively,
   getRootItems,
   isRootItem,
-} from './helpers.js';
+} from './src/helpers.js';

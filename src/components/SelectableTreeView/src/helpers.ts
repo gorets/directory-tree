@@ -34,8 +34,7 @@ export function isRootItem(item: any): boolean {
  */
 export function getChildrenFromFlat<T>(
   items: T[],
-  parentId: string,
-  getId: (item: T) => string
+  parentId: string
 ): T[] {
   return items.filter(item => {
     const itemParentId = getParentId(item);
@@ -61,7 +60,7 @@ export function findItemInFlat<T>(
       const itemId = getId(item);
       if (itemId === targetId) return item;
 
-      const children = getChildrenFromFlat(items, itemId, getId);
+      const children = getChildrenFromFlat(items, itemId);
       const found = search(children);
       if (found) return found;
     }
@@ -83,7 +82,7 @@ export function getAllDescendantIds<T>(
 
   const collect = (currentItem: T) => {
     const itemId = getId(currentItem);
-    const children = getChildrenFromFlat(items, itemId, getId);
+    const children = getChildrenFromFlat(items, itemId);
 
     children.forEach(child => {
       result.push(getId(child));
@@ -113,7 +112,7 @@ export function toggleItemsRecursively<T>(
     checkedSet.delete(itemId);
   }
 
-  const children = getChildrenFromFlat(items, itemId, getId);
+  const children = getChildrenFromFlat(items, itemId);
   children.forEach(child => {
     toggleItemsRecursively(items, child, check, getId, checkedSet);
   });

@@ -1,0 +1,49 @@
+{
+  "name": "selectable-tree-view",
+  "version": "1.0.1",
+  "description": "A production-ready hierarchical tree component with checkboxes, config synchronization, and lazy loading",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc && npm run copy-css",
+    "copy-css": "cp src/SelectableTree.css dist/src/",
+    "prepublishOnly": "npm run build",
+    "test": "echo \"Error: no tests specified\" && exit 1"
+  },
+  "keywords": [
+    "react",
+    "tree",
+    "treeview",
+    "checkbox",
+    "hierarchical",
+    "selectable",
+    "lazy-loading",
+    "typescript",
+    "config-sync"
+  ],
+  "author": "Vladimir Gorobets <vladimir.gorobets@gmail.com>",
+  "license": "MIT",
+  "peerDependencies": {
+    "react": "^17.0.0 || ^18.0.0",
+    "react-dom": "^17.0.0 || ^18.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "typescript": "^5.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gorets/directory-tree.git"
+  },
+  "bugs": {
+    "url": "https://github.com/gorets/directory-tree/issues"
+  },
+  "homepage": "https://github.com/gorets/directory-tree#readme"
+}

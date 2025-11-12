@@ -1,4 +1,4 @@
-import { memo, useCallback, ReactNode } from 'react';
+import React, { memo, useCallback, ReactNode } from 'react';
 import type { TreeNodeState, SelectableTreeProps } from './types.js';
 import './SelectableTree.css';
 
