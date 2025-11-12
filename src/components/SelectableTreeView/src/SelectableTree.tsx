@@ -1,5 +1,5 @@
-import React, { memo, useCallback, ReactNode } from 'react';
-import type { TreeNodeState, SelectableTreeProps } from './types.js';
+import { memo, useCallback, ReactNode } from 'react';
+import type { TreeNodeState, SelectableTreeProps } from './types';
 import './SelectableTree.css';
 
 interface SelectableTreeNodeProps<T> {

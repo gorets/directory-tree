@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { SelectableTree } from './SelectableTree.js';
-import type { TreeNodeState, TreeSyncConfig, SelectableTreeWithConfigProps } from './types.js';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { SelectableTree } from './SelectableTree';
+import type { TreeNodeState, TreeSyncConfig, SelectableTreeWithConfigProps } from './types';
 import {
   CONFIG_DEBOUNCE_MS,
   getChildrenFromFlat,
@@ -8,7 +8,7 @@ import {
   getAllDescendantIds,
   toggleItemsRecursively,
   getRootItems,
-} from './helpers.js';
+} from './helpers';
 
 /**
  * SelectableTreeWithConfig - A hierarchical tree component with checkboxes and config sync

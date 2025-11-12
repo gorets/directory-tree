@@ -43,9 +43,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for controlled/uncontrolled expanded nodes
 - Custom title rendering support
 
+### Testing
+- Comprehensive test suite with Jest and React Testing Library
+- Unit tests for all utility functions (utils.ts, helpers.ts, tree-builder.utils.ts)
+- Integration tests for SelectableTreeWithConfig component
+- Component tests for SelectableTree component
+- 80%+ code coverage across all metrics
+- Test configuration with jest.config.js
+- Testing guide documentation (TESTING.md)
+
 ### Documentation
 - Complete README with examples
 - API reference
 - Architecture explanation
 - Publishing guide
 - Migration guide from complex optimization approach
+- Testing guide with coverage reports
