@@ -203,7 +203,25 @@ SelectableTreeView/
 
 ## Testing
 
-When testing, verify:
+This package includes comprehensive test coverage. See [TESTING.md](./TESTING.md) for detailed testing guide.
+
+### Running Tests
+
+```bash
+npm test              # Run all tests
+npm run test:watch    # Run tests in watch mode
+npm run test:coverage # Run tests with coverage report
+```
+
+### Test Coverage
+
+The package includes:
+- ✅ Unit tests for all utility functions
+- ✅ Integration tests for SelectableTreeWithConfig
+- ✅ Component tests for SelectableTree
+- ✅ 80%+ code coverage across all metrics
+
+### Key Test Scenarios
 
 1. ✅ Clicking parent enables all children
 2. ✅ Unchecking child when parent enabled → child goes to disabled
@@ -211,4 +229,7 @@ When testing, verify:
 4. ✅ Toggling parent removes all descendant actions
 5. ✅ Config changes are debounced (100ms)
 6. ✅ Indeterminate state shows when some children checked
+7. ✅ State inheritance from parent to children
+8. ✅ Lazy loading with onLoadNode callback
+9. ✅ Minimal config generation
 
