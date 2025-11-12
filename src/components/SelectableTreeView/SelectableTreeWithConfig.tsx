@@ -354,34 +354,28 @@ export function SelectableTreeWithConfig<T>({
     if (isControlled && onExpandedNodesChange) {
       onExpandedNodesChange(updateExpandedNodes(expandedNodes));
     } else if (!isControlled) {
+      const wasExpanded = internalExpandedNodes.has(categoryId);
+
       setInternalExpandedNodes(prev => {
         const next = updateExpandedNodes(prev);
-        // If we are expanding, and the node currently has no children, trigger loader
-        const isNowExpanded = next.has(categoryId) && !prev.has(categoryId);
-        if (isNowExpanded) {
-          // find the item in current items and check children
-          const findItem = (itemList: T[], id: string): T | null => {
-            for (const item of itemList) {
-              const currentId = getId(item);
-              if (currentId === id) return item;
-              const found = findItem(getChildren(item), id);
-              if (found) return found;
-            }
-            return null;
-          };
-
-          const item = findItem(items, categoryId);
-          const children = item ? getChildren(item) : [];
-          if (children.length === 0) {
-            // request children for this node
-            callLoad(categoryId);
-          }
-        }
-
         return next;
       });
+
+      // Check if we're expanding (not collapsing) and need to load children
+      // Defer callLoad to avoid setState during render
+      if (!wasExpanded) {
+        const item = findItemInFlat(items, categoryId, getId);
+        const children = item ? getChildren(item) : [];
+
+        if (children.length === 0) {
+          // Defer to next tick to avoid "setState during render" warning
+          setTimeout(() => {
+            callLoad(categoryId);
+          }, 0);
+        }
+      }
     }
-  }, [isControlled, expandedNodes, onExpandedNodesChange, items, getId, callLoad]);
+  }, [isControlled, expandedNodes, onExpandedNodesChange, internalExpandedNodes, items, getId, getChildren, callLoad]);
 
   /**
    * Get root-level items for rendering
