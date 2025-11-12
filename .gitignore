@@ -1,2 +1,4 @@
 node_modules
 .history
+# Build output
+src/components/SelectableTreeView/dist/

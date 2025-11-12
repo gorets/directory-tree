@@ -2,6 +2,18 @@
 
 A production-ready hierarchical tree component with checkboxes, config synchronization, and lazy loading support.
 
+## Installation
+
+```bash
+npm install @your-org/selectable-tree-view
+```
+
+or
+
+```bash
+yarn add @your-org/selectable-tree-view
+```
+
 ## Features
 
 - ✅ **Flat data structure**: Works with flat arrays using `parentId` references
@@ -15,7 +27,8 @@ A production-ready hierarchical tree component with checkboxes, config synchroni
 ## Usage
 
 ```tsx
-import { SelectableTreeWithConfig } from './components/SelectableTreeView';
+import { SelectableTreeWithConfig } from '@your-org/selectable-tree-view';
+import '@your-org/selectable-tree-view/dist/SelectableTree.css';
 
 function MyComponent() {
   const [config, setConfig] = useState({ enabled: [], disabled: [] });
