@@ -31,6 +31,10 @@ export function SelectableTreeWithConfig<T>({
   // Track which nodes are currently loading
   const [loadingNodes, setLoadingNodes] = useState<Set<string>>(new Set());
   
+  // Track explicitly checked nodes (only those directly selected by user or in config)
+  // This prevents auto-checked children from being added to config
+  const [explicitlyCheckedItems, setExplicitlyCheckedItems] = useState<Set<string>>(new Set());
+  
   // Flag to prevent cycles: distinguish changes from user vs from config
   const isApplyingConfig = useRef(false);
 
@@ -106,6 +110,11 @@ export function SelectableTreeWithConfig<T>({
             checked.add(itemId);
           }
           
+          // Track ONLY explicitly set items (those in config), NOT their descendants
+          if (isExplicitlyEnabled || isExplicitlyDisabled) {
+            explicitlyChecked.add(itemId);
+          }
+          
           // Use dynamicGetChildren to get current children from flat items
           const children = itemList.filter((it: T) => {
             const parentId = (it as any).parentId;
@@ -115,8 +124,10 @@ export function SelectableTreeWithConfig<T>({
         }
       };
       
-      applyConfig(items);
+      const explicitlyChecked = new Set<string>();
+      applyConfig(items, false);
       setCheckedItems(checked);
+      setExplicitlyCheckedItems(explicitlyChecked);
       
       // Reset flag after a small delay
       setTimeout(() => {
@@ -192,7 +203,8 @@ export function SelectableTreeWithConfig<T>({
       }
       
       debouncedNotifyConfigChange.current = setTimeout(() => {
-        const newConfig = generateMinimalConfig(items, checkedItems, checkedState, getId);
+        // Only generate config from explicitly checked items, not auto-inherited ones
+        const newConfig = generateMinimalConfig(items, explicitlyCheckedItems, checkedState, getId);
         onConfigChangeRef.current?.(newConfig);
       }, 100);
     }
@@ -202,7 +214,7 @@ export function SelectableTreeWithConfig<T>({
         clearTimeout(debouncedNotifyConfigChange.current);
       }
     };
-  }, [checkedItems, checkedState, items, getId]);
+  }, [checkedItems, explicitlyCheckedItems, checkedState, items, getId]);
 
   const handleToggle = useCallback((itemId: string) => {
     const findItem = (itemList: T[], id: string): T | null => {
@@ -245,6 +257,13 @@ export function SelectableTreeWithConfig<T>({
 
       toggleRecursive(item, shouldCheck);
       return newChecked;
+    });
+
+    // Mark this item as explicitly checked by user
+    setExplicitlyCheckedItems(prev => {
+      const newExplicit = new Set(prev);
+      newExplicit.add(itemId);
+      return newExplicit;
     });
   }, [items, checkedState, getId]);
 
@@ -388,7 +407,7 @@ export function generateMinimalConfig<T>(
     if (parentState === null) {
       if (isFullyChecked) {
         enabled.push(itemId);
-        return;
+        return;  // Не обрабатываем детей - они наследуют состояние parent
       } else if (isFullyUnchecked) {
         return;
       } else if (isPartial) {
@@ -397,7 +416,8 @@ export function generateMinimalConfig<T>(
           children.forEach(child => processItem(child, 'disabled'));
         } else {
           enabled.push(itemId);
-          children.forEach(child => processItem(child, 'enabled'));
+          // Не обрабатываем детей рекурсивно - они наследуют enabled от parent
+          return;
         }
       }
       return;
@@ -410,10 +430,12 @@ export function generateMinimalConfig<T>(
       } else if (isPartial) {
         const counts = countDescendants(item);
         if (counts.disabled <= counts.enabled) {
-          children.forEach(child => processItem(child, 'enabled'));
+          // Большинство дети enabled - не добавляем их в конфиг
+          return;
         } else {
           disabled.push(itemId);
-          children.forEach(child => processItem(child, 'disabled'));
+          // Не обрабатываем детей рекурсивно
+          return;
         }
       }
       return;
@@ -423,13 +445,18 @@ export function generateMinimalConfig<T>(
       if (isFullyChecked) {
         enabled.push(itemId);
         return;
+      } else if (isFullyUnchecked) {
+        // Fully unchecked в disabled parent - не нужно явно добавлять в конфиг
+        return;
       } else if (isPartial) {
         const counts = countDescendants(item);
         if (counts.enabled <= counts.disabled) {
-          children.forEach(child => processItem(child, 'disabled'));
+          // Большинство дети disabled - не добавляем их в конфиг
+          return;
         } else {
           enabled.push(itemId);
-          children.forEach(child => processItem(child, 'enabled'));
+          // Не обрабатываем детей рекурсивно
+          return;
         }
       }
       return;
