@@ -14,7 +14,7 @@ module.exports = {
     '!node_modules/**',
     '!**/*.config.js',
   ],
-  coverageThresholds: {
+  coverageThreshold: {
     global: {
       branches: 80,
       functions: 80,
@@ -25,11 +25,7 @@ module.exports = {
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   transform: {
     '^.+\\.tsx?$': ['ts-jest', {
-      tsconfig: {
-        jsx: 'react',
-        esModuleInterop: true,
-        allowSyntheticDefaultImports: true,
-      },
+      tsconfig: '<rootDir>/tsconfig.test.json',
     }],
   },
   moduleNameMapper: {

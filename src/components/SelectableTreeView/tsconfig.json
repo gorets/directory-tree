@@ -4,7 +4,7 @@
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "node",
-    "jsx": "react",
+    "jsx": "react-jsx",
     "declaration": true,
     "declarationMap": true,
     "outDir": "./dist",
@@ -18,15 +18,18 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    "types": ["jest", "@testing-library/jest-dom", "node"]
   },
   "include": [
-    "*.ts",
-    "*.tsx"
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "index.tsx"
   ],
   "exclude": [
     "node_modules",
     "dist",
+    "__tests__",
     "**/*.test.ts",
     "**/*.test.tsx",
     "**/*.spec.ts",

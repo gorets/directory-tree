@@ -6,8 +6,8 @@ import {
   findItem,
   getAllDescendantIds,
   getAllEnabledItemIds,
-} from '../utils';
-import type { TreeNode, TreeSyncConfig } from '../types';
+} from '../src/utils';
+import type { TreeNode, TreeSyncConfig } from '../src/types';
 
 describe('utils', () => {
   describe('isTreeNode', () => {

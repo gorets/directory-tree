@@ -10,8 +10,8 @@ import {
   getAncestors,
   type TreeItem,
   type TreeItemWithChildren,
-} from '../tree-builder.utils';
-import type { SimpleTreeNode, SimpleTreeNodeWithChildren } from '../types';
+} from '../src/tree-builder.utils';
+import type { SimpleTreeNode, SimpleTreeNodeWithChildren } from '../src/types';
 
 describe('tree-builder.utils', () => {
   describe('buildGenericTree', () => {
@@ -78,7 +78,7 @@ describe('tree-builder.utils', () => {
   describe('buildItemsTree', () => {
     it('should build tree from SimpleTreeNode array', () => {
       const items: SimpleTreeNode[] = [
-        { id: '1', parentId: 'root', title: 'Parent', updatedAt: '2024-01-01' },
+        { id: '1', parentId: '', title: 'Parent', updatedAt: '2024-01-01' },
         { id: '1-1', parentId: '1', title: 'Child', updatedAt: '2024-01-02' },
       ];
 
@@ -113,7 +113,7 @@ describe('tree-builder.utils', () => {
 
     it('should build tree with custom transform', () => {
       const items: CustomItem[] = [
-        { id: '1', parentId: 'root', name: 'Parent' },
+        { id: '1', parentId: '', name: 'Parent' },
         { id: '1-1', parentId: '1', name: 'Child' },
       ];
 
@@ -126,6 +126,7 @@ describe('tree-builder.utils', () => {
 
       const tree = buildTree(items, transform);
 
+      expect(tree).toHaveLength(1);
       expect(tree[0].name).toBe('PARENT');
       expect(tree[0].children[0].name).toBe('CHILD');
     });

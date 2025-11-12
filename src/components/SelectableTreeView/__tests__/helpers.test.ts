@@ -8,7 +8,7 @@ import {
   getAllDescendantIds,
   toggleItemsRecursively,
   getRootItems,
-} from '../helpers';
+} from '../src/helpers';
 
 interface TestItem {
   id: string;
@@ -80,21 +80,19 @@ describe('helpers', () => {
       { id: '2-1', parentId: '2', name: 'Child 2-1' },
     ];
 
-    const getId = (item: TestItem) => item.id;
-
     it('should return children of specified parent', () => {
-      const children = getChildrenFromFlat(items, '1', getId);
+      const children = getChildrenFromFlat(items, '1');
       expect(children).toHaveLength(2);
       expect(children.map(c => c.id)).toEqual(['1-1', '1-2']);
     });
 
     it('should return empty array for item without children', () => {
-      const children = getChildrenFromFlat(items, '1-1', getId);
+      const children = getChildrenFromFlat(items, '1-1');
       expect(children).toHaveLength(0);
     });
 
     it('should return root items when parent is "root"', () => {
-      const children = getChildrenFromFlat(items, 'root', getId);
+      const children = getChildrenFromFlat(items, 'root');
       expect(children).toHaveLength(2);
       expect(children.map(c => c.id)).toEqual(['1', '2']);
     });

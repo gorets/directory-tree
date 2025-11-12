@@ -1,6 +1,6 @@
 {
   "name": "selectable-tree-view",
-  "version": "1.0.1",
+  "version": "1.0.9",
   "description": "A production-ready hierarchical tree component with checkboxes, config synchronization, and lazy loading",
   "main": "dist/index.js",
   "module": "dist/index.js",
@@ -16,7 +16,8 @@
     "prepublishOnly": "npm run build",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "publish": "npm run build && npm version patch && npm publish"
   },
   "keywords": [
     "react",

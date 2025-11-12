@@ -1,8 +1,7 @@
-import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { SelectableTree } from '../SelectableTree';
-import type { TreeNodeState } from '../types';
+import { SelectableTree } from '../src/SelectableTree';
+import type { TreeNodeState } from '../src/types';
 
 interface TestItem {
   id: string;
@@ -125,9 +124,8 @@ describe('SelectableTree', () => {
     const checkbox = screen.getAllByRole('checkbox')[0] as HTMLInputElement;
     expect(checkbox.indeterminate).toBe(true);
   });
-
   it('should render custom title when renderTitle provided', () => {
-    const renderTitle = (item: TestItem, defaultTitle: string) => (
+    const renderTitle = (_item: TestItem, defaultTitle: string) => (
       <strong data-testid="custom-title">{defaultTitle.toUpperCase()}</strong>
     );
 
@@ -138,7 +136,7 @@ describe('SelectableTree', () => {
     expect(customTitles[0]).toHaveTextContent('PARENT 1');
   });
 
-  it('should use custom getId function', () => {
+  it('should use custom getId function', async () => {
     const onToggle = jest.fn();
     const customGetId = (item: TestItem) => `custom-${item.id}`;
 
@@ -151,7 +149,7 @@ describe('SelectableTree', () => {
     );
 
     const checkbox = screen.getAllByRole('checkbox')[0];
-    userEvent.click(checkbox);
+    await userEvent.click(checkbox);
 
     expect(onToggle).toHaveBeenCalledWith('custom-1');
   });
