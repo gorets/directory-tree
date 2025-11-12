@@ -27,14 +27,14 @@ export function SelectableTreeWithConfig<T>({
   const expandedNodes = isControlled ? controlledExpandedNodes : internalExpandedNodes;
   
   const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
-  
+
   // Track which nodes are currently loading
   const [loadingNodes, setLoadingNodes] = useState<Set<string>>(new Set());
-  
-  // Track explicitly checked nodes (only those directly selected by user or in config)
-  // This prevents auto-checked children from being added to config
-  const [explicitlyCheckedItems, setExplicitlyCheckedItems] = useState<Set<string>>(new Set());
-  
+
+  // Track explicit user actions: Map<itemId, 'enabled' | 'disabled'>
+  // Only items explicitly clicked by user or loaded from config
+  const [explicitActions, setExplicitActions] = useState<Map<string, 'enabled' | 'disabled'>>(new Map());
+
   // Flag to prevent cycles: distinguish changes from user vs from config
   const isApplyingConfig = useRef(false);
 
@@ -84,37 +84,32 @@ export function SelectableTreeWithConfig<T>({
     }
   }, [onLoadNode, onNodeLoad]);
 
-  // Convert config to Set for fast lookup O(1) instead of O(n)
-  const enabledSet = useMemo(() => new Set(config.enabled), [config.enabled]);
-  const disabledSet = useMemo(() => new Set(config.disabled), [config.disabled]);
-  
   useEffect(() => {
     if (items && config && !isApplyingConfig.current) {
       isApplyingConfig.current = true;
       const checked = new Set<string>();
-      
+      const actions = new Map<string, 'enabled' | 'disabled'>();
+
+      // Build explicitActions from config
+      config.enabled.forEach(id => actions.set(id, 'enabled'));
+      config.disabled.forEach(id => actions.set(id, 'disabled'));
+
       const applyConfig = (itemList: T[], parentEnabled = false) => {
         for (const item of itemList) {
           const itemId = getId(item);
-          const isExplicitlyEnabled = enabledSet.has(itemId); // O(1)
-          const isExplicitlyDisabled = disabledSet.has(itemId); // O(1)
-          
+          const explicitAction = actions.get(itemId);
+
           let isEnabled = parentEnabled;
-          if (isExplicitlyEnabled) {
+          if (explicitAction === 'enabled') {
             isEnabled = true;
-          } else if (isExplicitlyDisabled) {
+          } else if (explicitAction === 'disabled') {
             isEnabled = false;
           }
-          
+
           if (isEnabled) {
             checked.add(itemId);
           }
-          
-          // Track ONLY explicitly set items (those in config), NOT their descendants
-          if (isExplicitlyEnabled || isExplicitlyDisabled) {
-            explicitlyChecked.add(itemId);
-          }
-          
+
           // Use dynamicGetChildren to get current children from flat items
           const children = itemList.filter((it: T) => {
             const parentId = (it as any).parentId;
@@ -123,18 +118,17 @@ export function SelectableTreeWithConfig<T>({
           applyConfig(children, isEnabled);
         }
       };
-      
-      const explicitlyChecked = new Set<string>();
+
       applyConfig(items, false);
       setCheckedItems(checked);
-      setExplicitlyCheckedItems(explicitlyChecked);
-      
+      setExplicitActions(actions);
+
       // Reset flag after a small delay
       setTimeout(() => {
         isApplyingConfig.current = false;
       }, 0);
     }
-  }, [items, config, getId, enabledSet, disabledSet]);
+  }, [items, config, getId]);
 
   // On mount: if loader exists, request root nodes
   useEffect(() => {
@@ -195,27 +189,26 @@ export function SelectableTreeWithConfig<T>({
     if (isApplyingConfig.current) {
       return;
     }
-    
-    if (onConfigChangeRef.current && items.length > 0 && checkedState.size > 0) {
+
+    if (onConfigChangeRef.current) {
       // Debounce: wait 100ms before calling onConfigChange
       if (debouncedNotifyConfigChange.current) {
         clearTimeout(debouncedNotifyConfigChange.current);
       }
-      
+
       debouncedNotifyConfigChange.current = setTimeout(() => {
-        // Generate minimal config using all checked items (including inherited ones)
-        // The function will determine which items actually need to be in the config
-        const newConfig = generateMinimalConfig(items, checkedItems, checkedState, getId);
+        // Generate config from explicit user actions
+        const newConfig = generateMinimalConfig(explicitActions);
         onConfigChangeRef.current?.(newConfig);
       }, 100);
     }
-    
+
     return () => {
       if (debouncedNotifyConfigChange.current) {
         clearTimeout(debouncedNotifyConfigChange.current);
       }
     };
-  }, [checkedItems, explicitlyCheckedItems, checkedState, items, getId]);
+  }, [explicitActions]);
 
   const handleToggle = useCallback((itemId: string) => {
     const findItem = (itemList: T[], id: string): T | null => {
@@ -233,13 +226,33 @@ export function SelectableTreeWithConfig<T>({
       return null;
     };
 
+    // Get all descendants of an item
+    const getAllDescendantIds = (item: T): string[] => {
+      const result: string[] = [];
+      const collect = (currentItem: T) => {
+        const id = getId(currentItem);
+        const children = items.filter((it: T) => {
+          const parentId = (it as any).parentId;
+          return parentId === id;
+        });
+        children.forEach(child => {
+          result.push(getId(child));
+          collect(child);
+        });
+      };
+      collect(item);
+      return result;
+    };
+
     const item = findItem(items, itemId);
     if (!item) return;
 
+    const currentState = checkedState.get(itemId);
+    const shouldCheck = !currentState?.checked;
+
+    // Update checkedItems
     setCheckedItems(prev => {
       const newChecked = new Set(prev);
-      const currentState = checkedState.get(itemId);
-      const shouldCheck = !currentState?.checked;
 
       const toggleRecursive = (currentItem: T, check: boolean) => {
         const id = getId(currentItem);
@@ -248,7 +261,6 @@ export function SelectableTreeWithConfig<T>({
         } else {
           newChecked.delete(id);
         }
-        // Get children from flat items
         const children = items.filter((it: T) => {
           const parentId = (it as any).parentId;
           return parentId === id;
@@ -260,11 +272,18 @@ export function SelectableTreeWithConfig<T>({
       return newChecked;
     });
 
-    // Mark this item as explicitly checked by user
-    setExplicitlyCheckedItems(prev => {
-      const newExplicit = new Set(prev);
-      newExplicit.add(itemId);
-      return newExplicit;
+    // Update explicitActions: add this item's action and remove all descendant actions
+    setExplicitActions(prev => {
+      const newActions = new Map(prev);
+
+      // Set action for this item
+      newActions.set(itemId, shouldCheck ? 'enabled' : 'disabled');
+
+      // Remove all descendant actions (they now inherit from this item)
+      const descendants = getAllDescendantIds(item);
+      descendants.forEach(descId => newActions.delete(descId));
+
+      return newActions;
     });
   }, [items, checkedState, getId]);
 
@@ -349,137 +368,20 @@ export function SelectableTreeWithConfig<T>({
   );
 }
 
-export function generateMinimalConfig<T>(
-  items: T[],
-  allCheckedItems: Set<string>,
-  checkedState: Map<string, TreeNodeState>,
-  getId: (item: T) => string
+export function generateMinimalConfig(
+  explicitActions: Map<string, 'enabled' | 'disabled'>
 ): TreeSyncConfig {
   const enabled: string[] = [];
   const disabled: string[] = [];
 
-  const countDescendants = (item: T): { enabled: number; disabled: number } => {
-    let enabledCount = 0;
-    let disabledCount = 0;
-    
-    const count = (currentItem: T) => {
-      const itemId = getId(currentItem);
-      // Get children from flat items
-      const children = items.filter((it: T) => {
-        const parentId = (it as any).parentId;
-        return parentId === itemId;
-      });
-      if (children.length === 0) {
-        if (allCheckedItems.has(getId(currentItem))) {
-          enabledCount++;
-        } else {
-          disabledCount++;
-        }
-      } else {
-        children.forEach(count);
-      }
-    };
-    
-    const itemId = getId(item);
-    const children = items.filter((it: T) => {
-      const parentId = (it as any).parentId;
-      return parentId === itemId;
-    });
-    children.forEach(count);
-    return { enabled: enabledCount, disabled: disabledCount };
-  };
-
-  const processItem = (
-    item: T,
-    parentState: 'enabled' | 'disabled' | null
-  ): void => {
-    const itemId = getId(item);
-    // Get children from flat items
-    const children = items.filter((it: T) => {
-      const parentId = (it as any).parentId;
-      return parentId === itemId;
-    });
-    const state = checkedState.get(itemId);
-    const isChecked = state?.checked || false;
-    const isFullyChecked = isChecked && !state?.indeterminate;
-    const isFullyUnchecked = !isChecked && !state?.indeterminate;
-    const isPartial = state?.indeterminate;
-
-    if (parentState === null) {
-      if (isFullyChecked) {
-        enabled.push(itemId);
-        return;  // Не обрабатываем детей - они наследуют состояние parent
-      } else if (isFullyUnchecked) {
-        return;
-      } else if (isPartial) {
-        const counts = countDescendants(item);
-        if (counts.enabled <= counts.disabled) {
-          children.forEach(child => processItem(child, 'disabled'));
-        } else {
-          // Большинство детей enabled - добавляем parent в enabled
-          enabled.push(itemId);
-          // Рекурсивно обрабатываем детей чтобы найти unchecked детей для disabled
-          children.forEach(child => processItem(child, 'enabled'));
-          return;
-        }
-      }
-      return;
+  // Simply split explicitActions into enabled and disabled arrays
+  explicitActions.forEach((action, itemId) => {
+    if (action === 'enabled') {
+      enabled.push(itemId);
+    } else if (action === 'disabled') {
+      disabled.push(itemId);
     }
-
-    if (parentState === 'enabled') {
-      if (isFullyUnchecked) {
-        disabled.push(itemId);
-        return;
-      } else if (isPartial) {
-        const counts = countDescendants(item);
-        if (counts.disabled <= counts.enabled) {
-          // Большинство детей enabled - не добавляем item в конфиг
-          // Рекурсивно обрабатываем детей чтобы найти unchecked детей для disabled
-          children.forEach(child => processItem(child, 'enabled'));
-          return;
-        } else {
-          // Большинство детей disabled - добавляем item в disabled
-          disabled.push(itemId);
-          // Рекурсивно обрабатываем детей чтобы найти enabled детей
-          children.forEach(child => processItem(child, 'disabled'));
-          return;
-        }
-      }
-      return;
-    }
-
-    if (parentState === 'disabled') {
-      if (isFullyChecked) {
-        enabled.push(itemId);
-        return;
-      } else if (isFullyUnchecked) {
-        // Fully unchecked в disabled parent - не нужно явно добавлять в конфиг
-        return;
-      } else if (isPartial) {
-        const counts = countDescendants(item);
-        if (counts.enabled <= counts.disabled) {
-          // Большинство детей disabled - не добавляем item в конфиг
-          // Рекурсивно обрабатываем детей чтобы найти enabled детей
-          children.forEach(child => processItem(child, 'disabled'));
-          return;
-        } else {
-          // Большинство детей enabled - добавляем item в enabled
-          enabled.push(itemId);
-          // Рекурсивно обрабатываем детей чтобы найти disabled детей
-          children.forEach(child => processItem(child, 'enabled'));
-          return;
-        }
-      }
-      return;
-    }
-  };
-
-  // Process only root-level items, processItem will recursively handle children
-  const rootItems = items.filter((item: T) => {
-    const parentId = (item as any).parentId;
-    return parentId === 'root' || !parentId;
   });
-  rootItems.forEach(item => processItem(item, null));
 
   return { enabled, disabled };
 }
