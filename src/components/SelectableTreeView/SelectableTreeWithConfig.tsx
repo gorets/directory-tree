@@ -1,7 +1,39 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { SelectableTree } from './SelectableTree.js';
 import type { TreeNodeState, TreeSyncConfig, SelectableTreeWithConfigProps } from './types.js';
+import {
+  ROOT_PARENT_ID,
+  CONFIG_DEBOUNCE_MS,
+  getChildrenFromFlat,
+  findItemInFlat,
+  getAllDescendantIds,
+  toggleItemsRecursively,
+  getRootItems,
+  isRootItem,
+} from './helpers.js';
 
+/**
+ * SelectableTreeWithConfig - A hierarchical tree component with checkboxes and config sync
+ *
+ * Key features:
+ * - Flat array data structure (items with parentId references)
+ * - Two-way sync with config (enabled/disabled arrays)
+ * - Inheritance: children inherit parent's checked state
+ * - Minimal config: only explicitly toggled items are stored
+ * - Lazy loading: load children on expand
+ * - Indeterminate state: for partially checked parents
+ *
+ * @example
+ * ```tsx
+ * <SelectableTreeWithConfig
+ *   items={flatItems}
+ *   config={{ enabled: ['id1'], disabled: ['id2'] }}
+ *   onConfigChange={(newConfig) => setConfig(newConfig)}
+ *   onNodeLoad={(parentId) => loadChildren(parentId)}
+ *   getId={(item) => item.id}
+ * />
+ * ```
+ */
 export function SelectableTreeWithConfig<T>({
   items,
   config,
@@ -41,17 +73,24 @@ export function SelectableTreeWithConfig<T>({
   // Track which parentIds we already requested to avoid duplicate loads
   const loadedParentsRef = useRef<Set<string>>(new Set());
 
-  // Normalized function to call when children need to be loaded
-  const callLoad = useCallback((parentId: string = 'root') => {
+  /**
+   * Load children for a parent node
+   * Handles both sync and async loaders, with loading state management
+   */
+  const callLoad = useCallback((parentId: string = ROOT_PARENT_ID) => {
     const loader = onNodeLoad ?? onLoadNode;
     if (!loader) return;
     if (loadedParentsRef.current.has(parentId)) return;
+
     try {
       setLoadingNodes(prev => new Set(prev).add(parentId));
       const res = loader(parentId);
-      // If it returns a promise, mark as loaded when resolved (or mark immediately to prevent duplicates)
+
+      // Mark as loaded immediately to prevent duplicate requests
       loadedParentsRef.current.add(parentId);
+
       if (res && typeof (res as any).then === 'function') {
+        // Handle async loader
         (res as Promise<any>)
           .finally(() => {
             setLoadingNodes(prev => {
@@ -61,11 +100,11 @@ export function SelectableTreeWithConfig<T>({
             });
           })
           .catch(() => {
-            // On failure allow retry by removing from set
+            // On failure, allow retry by removing from loaded set
             loadedParentsRef.current.delete(parentId);
           });
       } else {
-        // Sync result - immediately clear loading
+        // Handle sync loader
         setLoadingNodes(prev => {
           const next = new Set(prev);
           next.delete(parentId);
@@ -73,7 +112,7 @@ export function SelectableTreeWithConfig<T>({
         });
       }
     } catch (err) {
-      // allow retry
+      // On error, allow retry
       loadedParentsRef.current.delete(parentId);
       setLoadingNodes(prev => {
         const next = new Set(prev);
@@ -84,6 +123,10 @@ export function SelectableTreeWithConfig<T>({
     }
   }, [onLoadNode, onNodeLoad]);
 
+  /**
+   * Apply config to tree items
+   * Builds checked state and explicit actions from config
+   */
   useEffect(() => {
     if (items && config && !isApplyingConfig.current) {
       isApplyingConfig.current = true;
@@ -94,11 +137,15 @@ export function SelectableTreeWithConfig<T>({
       config.enabled.forEach(id => actions.set(id, 'enabled'));
       config.disabled.forEach(id => actions.set(id, 'disabled'));
 
+      /**
+       * Recursively apply config to items and their children
+       */
       const applyConfig = (itemList: T[], parentEnabled = false) => {
         for (const item of itemList) {
           const itemId = getId(item);
           const explicitAction = actions.get(itemId);
 
+          // Determine if this item should be enabled
           let isEnabled = parentEnabled;
           if (explicitAction === 'enabled') {
             isEnabled = true;
@@ -110,11 +157,8 @@ export function SelectableTreeWithConfig<T>({
             checked.add(itemId);
           }
 
-          // Use dynamicGetChildren to get current children from flat items
-          const children = itemList.filter((it: T) => {
-            const parentId = (it as any).parentId;
-            return parentId === itemId;
-          });
+          // Recursively apply to children
+          const children = getChildrenFromFlat(items, itemId, getId);
           applyConfig(children, isEnabled);
         }
       };
@@ -123,39 +167,44 @@ export function SelectableTreeWithConfig<T>({
       setCheckedItems(checked);
       setExplicitActions(actions);
 
-      // Reset flag after a small delay
+      // Reset flag after next tick to allow state updates
       setTimeout(() => {
         isApplyingConfig.current = false;
       }, 0);
     }
   }, [items, config, getId]);
 
-  // On mount: if loader exists, request root nodes
+  /**
+   * On mount: if loader exists, request root nodes
+   */
   useEffect(() => {
     const loader = onNodeLoad ?? onLoadNode;
     if (loader) {
-      // Call to load root-level nodes
-      callLoad('root');
+      callLoad(ROOT_PARENT_ID);
     }
   }, [callLoad, onLoadNode, onNodeLoad]);
 
+  /**
+   * Calculate checked and indeterminate states for all items
+   * Leaf nodes: based on checkedItems
+   * Parent nodes: based on children states (all/some/none checked)
+   */
   const checkedState = useMemo(() => {
     const state = new Map<string, TreeNodeState>();
 
     const calculateState = (item: T): TreeNodeState => {
       const itemId = getId(item);
-      // Get children from flat items array
-      const children = items.filter((it: T) => {
-        const parentId = (it as any).parentId;
-        return parentId === itemId;
-      });
-      
+      const children = getChildrenFromFlat(items, itemId, getId);
+
+      // Leaf node: state based on checkedItems
       if (children.length === 0) {
         const checked = checkedItems.has(itemId);
-        state.set(itemId, { checked, indeterminate: false });
-        return { checked, indeterminate: false };
+        const nodeState = { checked, indeterminate: false };
+        state.set(itemId, nodeState);
+        return nodeState;
       }
 
+      // Parent node: state based on children
       const childStates = children.map(calculateState);
       const allChecked = childStates.every(s => s.checked && !s.indeterminate);
       const someChecked = childStates.some(s => s.checked || s.indeterminate);
@@ -169,38 +218,37 @@ export function SelectableTreeWithConfig<T>({
       return nodeState;
     };
 
-    // Only calculate for root items
-    const rootItems = items.filter((item: T) => {
-      const parentId = (item as any).parentId;
-      return parentId === 'root' || !parentId;
-    });
+    // Calculate state starting from root items
+    const rootItems = getRootItems(items);
     rootItems.forEach(calculateState);
     return state;
   }, [items, checkedItems, getId]);
 
-  // Debounce for onConfigChange to avoid calling it too frequently
+  /**
+   * Notify parent of config changes with debouncing
+   */
   const onConfigChangeRef = useRef(onConfigChange);
   onConfigChangeRef.current = onConfigChange;
-  
+
   const debouncedNotifyConfigChange = useRef<NodeJS.Timeout | null>(null);
-  
+
   useEffect(() => {
-    // Don't generate config if we just applied it
+    // Don't generate config if we're currently applying config from props
     if (isApplyingConfig.current) {
       return;
     }
 
     if (onConfigChangeRef.current) {
-      // Debounce: wait 100ms before calling onConfigChange
+      // Clear previous debounce timer
       if (debouncedNotifyConfigChange.current) {
         clearTimeout(debouncedNotifyConfigChange.current);
       }
 
+      // Debounce config changes to avoid excessive updates
       debouncedNotifyConfigChange.current = setTimeout(() => {
-        // Generate config from explicit user actions
         const newConfig = generateMinimalConfig(explicitActions);
         onConfigChangeRef.current?.(newConfig);
-      }, 100);
+      }, CONFIG_DEBOUNCE_MS);
     }
 
     return () => {
@@ -210,83 +258,43 @@ export function SelectableTreeWithConfig<T>({
     };
   }, [explicitActions]);
 
+  /**
+   * Handle checkbox toggle for an item
+   * Updates both checked state and explicit actions
+   */
   const handleToggle = useCallback((itemId: string) => {
-    const findItem = (itemList: T[], id: string): T | null => {
-      for (const item of itemList) {
-        const currentId = getId(item);
-        if (currentId === id) return item;
-        // Get children from flat items
-        const children = items.filter((it: T) => {
-          const parentId = (it as any).parentId;
-          return parentId === currentId;
-        });
-        const found = findItem(children, id);
-        if (found) return found;
-      }
-      return null;
-    };
-
-    // Get all descendants of an item
-    const getAllDescendantIds = (item: T): string[] => {
-      const result: string[] = [];
-      const collect = (currentItem: T) => {
-        const id = getId(currentItem);
-        const children = items.filter((it: T) => {
-          const parentId = (it as any).parentId;
-          return parentId === id;
-        });
-        children.forEach(child => {
-          result.push(getId(child));
-          collect(child);
-        });
-      };
-      collect(item);
-      return result;
-    };
-
-    const item = findItem(items, itemId);
+    const item = findItemInFlat(items, itemId, getId);
     if (!item) return;
 
     const currentState = checkedState.get(itemId);
     const shouldCheck = !currentState?.checked;
 
-    // Update checkedItems
+    // Update checkedItems with new state for item and all descendants
     setCheckedItems(prev => {
       const newChecked = new Set(prev);
-
-      const toggleRecursive = (currentItem: T, check: boolean) => {
-        const id = getId(currentItem);
-        if (check) {
-          newChecked.add(id);
-        } else {
-          newChecked.delete(id);
-        }
-        const children = items.filter((it: T) => {
-          const parentId = (it as any).parentId;
-          return parentId === id;
-        });
-        children.forEach(child => toggleRecursive(child, check));
-      };
-
-      toggleRecursive(item, shouldCheck);
+      toggleItemsRecursively(items, item, shouldCheck, getId, newChecked);
       return newChecked;
     });
 
-    // Update explicitActions: add this item's action and remove all descendant actions
+    // Update explicitActions: record this action and remove descendant actions
     setExplicitActions(prev => {
       const newActions = new Map(prev);
 
-      // Set action for this item
+      // Record explicit action for this item
       newActions.set(itemId, shouldCheck ? 'enabled' : 'disabled');
 
-      // Remove all descendant actions (they now inherit from this item)
-      const descendants = getAllDescendantIds(item);
+      // Remove all descendant actions (they now inherit from parent)
+      const descendants = getAllDescendantIds(items, item, getId);
       descendants.forEach(descId => newActions.delete(descId));
 
       return newActions;
     });
   }, [items, checkedState, getId]);
 
+  /**
+   * Handle expand/collapse toggle for a tree node
+   * If expanding and node has no children, triggers lazy loading
+   */
   const handleToggleExpand = useCallback((categoryId: string) => {
     const updateExpandedNodes = (prev: Set<string>) => {
       const next = new Set(prev);
@@ -297,30 +305,20 @@ export function SelectableTreeWithConfig<T>({
       }
       return next;
     };
-    
+
     if (isControlled && onExpandedNodesChange) {
       onExpandedNodesChange(updateExpandedNodes(expandedNodes));
     } else if (!isControlled) {
       setInternalExpandedNodes(prev => {
         const next = updateExpandedNodes(prev);
-        // If we are expanding, and the node currently has no children, trigger loader
         const isNowExpanded = next.has(categoryId) && !prev.has(categoryId);
-        if (isNowExpanded) {
-          // find the item in current items and check children
-          const findItem = (itemList: T[], id: string): T | null => {
-            for (const item of itemList) {
-              const currentId = getId(item);
-              if (currentId === id) return item;
-              const found = findItem(getChildren(item), id);
-              if (found) return found;
-            }
-            return null;
-          };
 
-          const item = findItem(items, categoryId);
+        // If expanding and node has no loaded children, trigger loader
+        if (isNowExpanded) {
+          const item = findItemInFlat(items, categoryId, getId);
           const children = item ? getChildren(item) : [];
+
           if (children.length === 0) {
-            // request children for this node
             callLoad(categoryId);
           }
         }
@@ -328,28 +326,22 @@ export function SelectableTreeWithConfig<T>({
         return next;
       });
     }
-  }, [isControlled, expandedNodes, onExpandedNodesChange, items, getId, callLoad]);
+  }, [isControlled, expandedNodes, onExpandedNodesChange, items, getId, getChildren, callLoad]);
 
-  // Get only root-level items (those with parentId === 'root')
-  const hierarchicalItems = useMemo(() => {
-    const roots = items.filter((item: T) => {
-      const parentId = (item as any).parentId;
-      return parentId === 'root' || !parentId;
-    });
-    return roots;
-  }, [items]);
+  /**
+   * Get root-level items for rendering
+   */
+  const hierarchicalItems = useMemo(() => getRootItems(items), [items]);
 
   const loader = onNodeLoad ?? onLoadNode;
 
-  // Dynamic getChildren that looks up children in the flat items array
-  const dynamicGetChildren = useCallback((item: T) => {
-    const itemId = getId(item);
-    const children = items.filter((it: T) => {
-      const parentId = (it as any).parentId;
-      return parentId === itemId;
-    });
-    return children;
-  }, [items, getId]);
+  /**
+   * Dynamic getChildren that looks up children in the flat items array
+   */
+  const dynamicGetChildren = useCallback(
+    (item: T) => getChildrenFromFlat(items, getId(item), getId),
+    [items, getId]
+  );
 
   return (
     <SelectableTree
@@ -368,13 +360,22 @@ export function SelectableTreeWithConfig<T>({
   );
 }
 
+/**
+ * Generate minimal config from explicit user actions
+ *
+ * This is intentionally simple: just splits the explicitActions Map
+ * into enabled and disabled arrays. The minimality is achieved by
+ * removing descendant actions when a parent is toggled.
+ *
+ * @param explicitActions - Map of item IDs to their explicit actions
+ * @returns Config with enabled and disabled arrays
+ */
 export function generateMinimalConfig(
   explicitActions: Map<string, 'enabled' | 'disabled'>
 ): TreeSyncConfig {
   const enabled: string[] = [];
   const disabled: string[] = [];
 
-  // Simply split explicitActions into enabled and disabled arrays
   explicitActions.forEach((action, itemId) => {
     if (action === 'enabled') {
       enabled.push(itemId);

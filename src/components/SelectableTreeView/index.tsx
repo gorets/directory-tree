@@ -20,6 +20,17 @@ export {
   isItemEnabled,
   findItemPath,
   findItem,
-  getAllDescendantIds,
   getAllEnabledItemIds
 } from './utils.js';
+
+// Helper functions
+export {
+  ROOT_PARENT_ID,
+  CONFIG_DEBOUNCE_MS,
+  getChildrenFromFlat,
+  findItemInFlat,
+  getAllDescendantIds,
+  toggleItemsRecursively,
+  getRootItems,
+  isRootItem,
+} from './helpers.js';
