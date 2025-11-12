@@ -41,7 +41,12 @@ function App() {
           setTreeConfig(config);
           if (config.enabled.length) {
             console.log('Fetching root with enabled pages:', config.enabled);
-            fetchTreeNode(null, config.enabled);
+            // Откладываем вызов на следующий tick чтобы избежать setState во время рендера
+            setTimeout(() => {
+              if (isMounted) {
+                fetchTreeNode(null, config.enabled);
+              }
+            }, 0);
           }
         }
       } catch (error) {

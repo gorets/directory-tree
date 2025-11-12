@@ -73,24 +73,17 @@ export function SelectableTreeWithConfig<T>({
   // Track which parentIds we already requested to avoid duplicate loads
   const loadedParentsRef = useRef<Set<string>>(new Set());
 
-  /**
-   * Load children for a parent node
-   * Handles both sync and async loaders, with loading state management
-   */
-  const callLoad = useCallback((parentId: string = ROOT_PARENT_ID) => {
+  // Normalized function to call when children need to be loaded
+  const callLoad = useCallback((parentId: string = 'root') => {
     const loader = onNodeLoad ?? onLoadNode;
     if (!loader) return;
     if (loadedParentsRef.current.has(parentId)) return;
-
     try {
       setLoadingNodes(prev => new Set(prev).add(parentId));
       const res = loader(parentId);
-
-      // Mark as loaded immediately to prevent duplicate requests
+      // If it returns a promise, mark as loaded when resolved (or mark immediately to prevent duplicates)
       loadedParentsRef.current.add(parentId);
-
       if (res && typeof (res as any).then === 'function') {
-        // Handle async loader
         (res as Promise<any>)
           .finally(() => {
             setLoadingNodes(prev => {
@@ -100,11 +93,11 @@ export function SelectableTreeWithConfig<T>({
             });
           })
           .catch(() => {
-            // On failure, allow retry by removing from loaded set
+            // On failure allow retry by removing from set
             loadedParentsRef.current.delete(parentId);
           });
       } else {
-        // Handle sync loader
+        // Sync result - immediately clear loading
         setLoadingNodes(prev => {
           const next = new Set(prev);
           next.delete(parentId);
@@ -112,7 +105,7 @@ export function SelectableTreeWithConfig<T>({
         });
       }
     } catch (err) {
-      // On error, allow retry
+      // allow retry
       loadedParentsRef.current.delete(parentId);
       setLoadingNodes(prev => {
         const next = new Set(prev);
@@ -180,7 +173,8 @@ export function SelectableTreeWithConfig<T>({
   useEffect(() => {
     const loader = onNodeLoad ?? onLoadNode;
     if (loader) {
-      callLoad(ROOT_PARENT_ID);
+      // Call to load root-level nodes
+      callLoad('root');
     }
   }, [callLoad, onLoadNode, onNodeLoad]);
 
@@ -291,13 +285,64 @@ export function SelectableTreeWithConfig<T>({
     });
   }, [items, checkedState, getId]);
 
+  // Track nodes that need loading after expand
+  const [nodesToLoad, setNodesToLoad] = useState<Set<string>>(new Set());
+
+  // useEffect to handle loading deferred out of setState
+  useEffect(() => {
+    if (nodesToLoad.size === 0) return;
+    
+    // Create local loader function to avoid circular dependency
+    const loader = onNodeLoad ?? onLoadNode;
+    if (!loader) return;
+
+    for (const nodeId of nodesToLoad) {
+      if (loadedParentsRef.current.has(nodeId)) continue;
+      try {
+        setLoadingNodes(prev => new Set(prev).add(nodeId));
+        const res = loader(nodeId);
+        loadedParentsRef.current.add(nodeId);
+        if (res && typeof (res as any).then === 'function') {
+          (res as Promise<any>)
+            .finally(() => {
+              setLoadingNodes(prev => {
+                const next = new Set(prev);
+                next.delete(nodeId);
+                return next;
+              });
+            })
+            .catch(() => {
+              loadedParentsRef.current.delete(nodeId);
+            });
+        } else {
+          setLoadingNodes(prev => {
+            const next = new Set(prev);
+            next.delete(nodeId);
+            return next;
+          });
+        }
+      } catch (err) {
+        loadedParentsRef.current.delete(nodeId);
+        setLoadingNodes(prev => {
+          const next = new Set(prev);
+          next.delete(nodeId);
+          return next;
+        });
+        throw err;
+      }
+    }
+    
+    // Clear after loading
+    setNodesToLoad(new Set());
+  }, [nodesToLoad, onNodeLoad, onLoadNode]);
+
   /**
    * Handle expand/collapse toggle for a tree node
    * If expanding and node has no children, triggers lazy loading
    */
   const handleToggleExpand = useCallback((categoryId: string) => {
-    const updateExpandedNodes = (prev: Set<string>) => {
-      const next = new Set(prev);
+    const updateExpandedNodes = (nodes: Set<string>) => {
+      const next = new Set(nodes);
       if (next.has(categoryId)) {
         next.delete(categoryId);
       } else {
@@ -311,14 +356,24 @@ export function SelectableTreeWithConfig<T>({
     } else if (!isControlled) {
       setInternalExpandedNodes(prev => {
         const next = updateExpandedNodes(prev);
+        // If we are expanding, and the node currently has no children, trigger loader
         const isNowExpanded = next.has(categoryId) && !prev.has(categoryId);
-
-        // If expanding and node has no loaded children, trigger loader
         if (isNowExpanded) {
-          const item = findItemInFlat(items, categoryId, getId);
-          const children = item ? getChildren(item) : [];
+          // find the item in current items and check children
+          const findItem = (itemList: T[], id: string): T | null => {
+            for (const item of itemList) {
+              const currentId = getId(item);
+              if (currentId === id) return item;
+              const found = findItem(getChildren(item), id);
+              if (found) return found;
+            }
+            return null;
+          };
 
+          const item = findItem(items, categoryId);
+          const children = item ? getChildren(item) : [];
           if (children.length === 0) {
+            // request children for this node
             callLoad(categoryId);
           }
         }
@@ -326,7 +381,7 @@ export function SelectableTreeWithConfig<T>({
         return next;
       });
     }
-  }, [isControlled, expandedNodes, onExpandedNodesChange, items, getId, getChildren, callLoad]);
+  }, [isControlled, expandedNodes, onExpandedNodesChange, items, getId, callLoad]);
 
   /**
    * Get root-level items for rendering
