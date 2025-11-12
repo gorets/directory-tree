@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "publish:SelectableTreeView": "cd src/components/SelectableTreeView && npm run build && && npm version patch && npm publish --access public"
   },
   "dependencies": {
     "react": "^18.2.0",
