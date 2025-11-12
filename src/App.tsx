@@ -41,7 +41,7 @@ function App() {
           setTreeConfig(config);
           if (config.enabled.length) {
             console.log('Fetching root with enabled pages:', config.enabled);
-            // Откладываем вызов на следующий tick чтобы избежать setState во время рендера
+            // Wait a tick to ensure state is set before fetching
             setTimeout(() => {
               if (isMounted) {
                 fetchTreeNode(null, config.enabled);
@@ -172,6 +172,16 @@ function App() {
             onNodeLoad={fetchTreeNode}
             onConfigChange={(config) => {
               updateConfigIfItWasChanged(config);
+            }}
+            renderTitle={(item: any, defaultTitle: string) => {
+              return (
+                <>
+                  {defaultTitle}
+                  <span style={{marginLeft: 10, color: '#999', fontSize: '0.65rem'}}>
+                    (ID: {item.id} / POS: {item.position ?? 0})
+                  </span>
+                </>
+              )
             }}
           />
         </div>
