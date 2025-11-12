@@ -3,6 +3,7 @@ import { SelectableTreeWithConfig, TreeSyncConfig } from './components/Selectabl
 
 const token = 'wsk-v1-9NWAgbA6QFFts0H2mIkxQPMQkeJRvmjqTW2tlASevRYC5bWyujXc3HbbbcVvhHmoheRwOtEmvHHzp8Xc3ZD2Zk8KPa3tr';
 
+const baseUrl = 'http://localhost:3000';
 
 const loadedConfig = {
   "enabled": [
@@ -28,6 +29,7 @@ function App() {
   const [treeConfig, setTreeConfig] = useState({ enabled: [] as string[], disabled: [] as string[] });
   const [isLoadingConfig, setIsLoadingConfig] = useState(true);
   const [isLoadingTreeData, setIsLoadingTreeData] = useState(true);
+  const [spaceId, setSpaceId] = useState<string>('30277677');
 
   useEffect(() => {
     const abortController = new AbortController();
@@ -71,16 +73,17 @@ function App() {
   const fetchTreeNode = useCallback(async (parentId: string | null = null, parentPages: (string | Number)[] | undefined = undefined) => {
     try {
       setIsLoadingTreeData(true);
-      const response = await fetch(`http://localhost:3000/api/v1/data-sources/43c16eeb-73c9-4bfc-b98e-dba277bd26c8/extra-info`, {
+      const response = await fetch(`${baseUrl}/api/v1/data-sources/43c16eeb-73c9-4bfc-b98e-dba277bd26c8/describe`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
-          "parameters": {
-            "pages": {
-              spaceId: "30277677",
+          parameters: {
+            // spaces: true,
+            pages: {
+              spaceId: spaceId,
               parentId: parentId !== 'root' ? parentId : null,
               parentPages,
             }
@@ -91,10 +94,10 @@ function App() {
       if (!response.ok) {
         throw new Error(`HTTP error! Status: ${response.status}`);
       }
-      const { extraInfo } = await response.json();
+      const { info } = await response.json();
 
       // API doesn't return parentId, so we set it ourselves based on the request
-      const pages = extraInfo.pages
+      const pages = info.pages
         // .filter((page: any) => page.status === 'current')
         .map((page: any) => ({
           id: page.id,
@@ -177,7 +180,7 @@ function App() {
               return (
                 <>
                   {defaultTitle}
-                  <span style={{marginLeft: 10, color: '#999', fontSize: '0.65rem'}}>
+                  <span style={{ marginLeft: 10, color: '#999', fontSize: '0.65rem' }}>
                     (ID: {item.id} / POS: {item.position ?? 0})
                   </span>
                 </>
