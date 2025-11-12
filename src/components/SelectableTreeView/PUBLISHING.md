@@ -16,7 +16,7 @@ Edit `package.json` and update:
 
 ```json
 {
-  "name": "@your-org/selectable-tree-view",  // Change to your scope
+  "name": "selectable-tree-view",  // Change to your scope
   "version": "1.0.0",
   "author": "Your Name <your.email@example.com>",
   "repository": {

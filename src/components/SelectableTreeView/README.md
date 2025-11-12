@@ -5,13 +5,13 @@ A production-ready hierarchical tree component with checkboxes, config synchroni
 ## Installation
 
 ```bash
-npm install @your-org/selectable-tree-view
+npm install selectable-tree-view
 ```
 
 or
 
 ```bash
-yarn add @your-org/selectable-tree-view
+yarn add selectable-tree-view
 ```
 
 ## Features
@@ -27,8 +27,8 @@ yarn add @your-org/selectable-tree-view
 ## Usage
 
 ```tsx
-import { SelectableTreeWithConfig } from '@your-org/selectable-tree-view';
-import '@your-org/selectable-tree-view/dist/SelectableTree.css';
+import { SelectableTreeWithConfig } from 'selectable-tree-view';
+import 'selectable-tree-view/dist/SelectableTree.css';
 
 function MyComponent() {
   const [config, setConfig] = useState({ enabled: [], disabled: [] });
@@ -212,18 +212,3 @@ When testing, verify:
 5. ✅ Config changes are debounced (100ms)
 6. ✅ Indeterminate state shows when some children checked
 
-## Migration from Old Approach
-
-The component was refactored from a complex "majority optimization" approach to a simple "explicit actions" approach:
-
-### Before (Complex)
-- Complex tree traversal with "majority" logic
-- ~130 lines of config generation code
-- Frequent synchronization bugs
-
-### After (Simple)
-- Track only explicit user clicks
-- ~15 lines of config generation code
-- Predictable and bug-free
-
-Config format remains the same, so no changes needed for consumers.
