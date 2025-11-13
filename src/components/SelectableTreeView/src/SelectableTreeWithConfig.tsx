@@ -10,6 +10,9 @@ import {
   getRootItems,
 } from './helpers';
 
+// Re-export optimization utility
+export { getOptimizedConfig } from './helpers';
+
 /**
  * SelectableTreeWithConfig - A hierarchical tree component with checkboxes and config sync
  *

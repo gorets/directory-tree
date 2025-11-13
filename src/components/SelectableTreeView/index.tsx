@@ -33,4 +33,6 @@ export {
   toggleItemsRecursively,
   getRootItems,
   isRootItem,
+  getAncestorIds,
+  getOptimizedConfig,
 } from './src/helpers.js';

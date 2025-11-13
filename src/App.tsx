@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { SelectableTreeWithConfig, TreeSyncConfig } from './components/SelectableTreeView/index.js';
+import { SelectableTreeWithConfig, getOptimizedConfig } from './components/SelectableTreeView/index.js';
 
 const token = 'wsk-v1-9NWAgbA6QFFts0H2mIkxQPMQkeJRvmjqTW2tlASevRYC5bWyujXc3HbbbcVvhHmoheRwOtEmvHHzp8Xc3ZD2Zk8KPa3tr';
 
@@ -140,6 +140,13 @@ function App() {
     });
   }
 
+  const handleOptimizeConfig = useCallback(() => {
+    const optimizedConfig = getOptimizedConfig(pages, treeConfig, (item: any) => item.id);
+    console.log('Original config:', treeConfig);
+    console.log('Optimized config:', optimizedConfig);
+    setTreeConfig(optimizedConfig);
+  }, [pages, treeConfig]);
+
   return (
     <>
       <div style={{
@@ -183,9 +190,28 @@ function App() {
               padding: '20px', textAlign: 'center', color: '#999'
             }}>Config Loading...</div>
           ) : (
-            <pre style={{ margin: 0 }}>
-              {JSON.stringify(treeConfig, null, 2)}
-            </pre>
+            <>
+              <button
+                onClick={handleOptimizeConfig}
+                style={{
+                  marginBottom: '10px',
+                  padding: '8px 16px',
+                  backgroundColor: '#007bff',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#0056b3'}
+                onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#007bff'}
+              >
+                Optimize Config
+              </button>
+              <pre style={{ margin: 0 }}>
+                {JSON.stringify(treeConfig, null, 2)}
+              </pre>
+            </>
           )}
         </div>
       </div>

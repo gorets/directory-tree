@@ -1,6 +1,6 @@
 {
   "name": "selectable-tree-view",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "description": "A production-ready hierarchical tree component with checkboxes, config synchronization, and lazy loading",
   "main": "dist/index.js",
   "module": "dist/index.js",
