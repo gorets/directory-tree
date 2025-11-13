@@ -19,7 +19,7 @@ interface TestItem {
 describe('helpers', () => {
   describe('constants', () => {
     it('should have ROOT_PARENT_ID defined', () => {
-      expect(ROOT_PARENT_ID).toBe('root');
+      expect(ROOT_PARENT_ID).toBe(null);
     });
 
     it('should have CONFIG_DEBOUNCE_MS defined', () => {
@@ -50,11 +50,6 @@ describe('helpers', () => {
   });
 
   describe('isRootItem', () => {
-    it('should return true for item with parentId "root"', () => {
-      const item = { id: '1', parentId: 'root', name: 'Root Item' };
-      expect(isRootItem(item)).toBe(true);
-    });
-
     it('should return true for item with null parentId', () => {
       const item = { id: '1', parentId: null, name: 'Root Item' };
       expect(isRootItem(item)).toBe(true);
@@ -65,7 +60,7 @@ describe('helpers', () => {
       expect(isRootItem(item)).toBe(true);
     });
 
-    it('should return false for item with non-root parentId', () => {
+    it('should return false for item with non-null parentId', () => {
       const item = { id: '1', parentId: 'parent', name: 'Child Item' };
       expect(isRootItem(item)).toBe(false);
     });
@@ -73,8 +68,8 @@ describe('helpers', () => {
 
   describe('getChildrenFromFlat', () => {
     const items: TestItem[] = [
-      { id: '1', parentId: 'root', name: 'Parent 1' },
-      { id: '2', parentId: 'root', name: 'Parent 2' },
+      { id: '1', parentId: null, name: 'Parent 1' },
+      { id: '2', parentId: null, name: 'Parent 2' },
       { id: '1-1', parentId: '1', name: 'Child 1-1' },
       { id: '1-2', parentId: '1', name: 'Child 1-2' },
       { id: '2-1', parentId: '2', name: 'Child 2-1' },
@@ -91,8 +86,8 @@ describe('helpers', () => {
       expect(children).toHaveLength(0);
     });
 
-    it('should return root items when parent is "root"', () => {
-      const children = getChildrenFromFlat(items, 'root');
+    it('should return root items when parent is null', () => {
+      const children = getChildrenFromFlat(items, null);
       expect(children).toHaveLength(2);
       expect(children.map(c => c.id)).toEqual(['1', '2']);
     });
@@ -100,10 +95,10 @@ describe('helpers', () => {
 
   describe('findItemInFlat', () => {
     const items: TestItem[] = [
-      { id: '1', parentId: 'root', name: 'Parent 1' },
+      { id: '1', parentId: null, name: 'Parent 1' },
       { id: '1-1', parentId: '1', name: 'Child 1-1' },
       { id: '1-1-1', parentId: '1-1', name: 'Grandchild 1-1-1' },
-      { id: '2', parentId: 'root', name: 'Parent 2' },
+      { id: '2', parentId: null, name: 'Parent 2' },
     ];
 
     const getId = (item: TestItem) => item.id;
@@ -135,11 +130,11 @@ describe('helpers', () => {
 
   describe('getAllDescendantIds', () => {
     const items: TestItem[] = [
-      { id: '1', parentId: 'root', name: 'Parent 1' },
+      { id: '1', parentId: null, name: 'Parent 1' },
       { id: '1-1', parentId: '1', name: 'Child 1-1' },
       { id: '1-1-1', parentId: '1-1', name: 'Grandchild 1-1-1' },
       { id: '1-2', parentId: '1', name: 'Child 1-2' },
-      { id: '2', parentId: 'root', name: 'Parent 2' },
+      { id: '2', parentId: null, name: 'Parent 2' },
     ];
 
     const getId = (item: TestItem) => item.id;
@@ -169,7 +164,7 @@ describe('helpers', () => {
 
   describe('toggleItemsRecursively', () => {
     const items: TestItem[] = [
-      { id: '1', parentId: 'root', name: 'Parent 1' },
+      { id: '1', parentId: null, name: 'Parent 1' },
       { id: '1-1', parentId: '1', name: 'Child 1-1' },
       { id: '1-1-1', parentId: '1-1', name: 'Grandchild 1-1-1' },
       { id: '1-2', parentId: '1', name: 'Child 1-2' },
@@ -225,8 +220,8 @@ describe('helpers', () => {
 
   describe('getRootItems', () => {
     const items: TestItem[] = [
-      { id: '1', parentId: 'root', name: 'Root 1' },
-      { id: '2', parentId: 'root', name: 'Root 2' },
+      { id: '1', parentId: null, name: 'Root 1' },
+      { id: '2', parentId: null, name: 'Root 2' },
       { id: '1-1', parentId: '1', name: 'Child 1-1' },
       { id: '3', parentId: null, name: 'Root 3' },
       { id: '4', name: 'Root 4' }, // no parentId

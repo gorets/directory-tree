@@ -33,7 +33,7 @@ import 'selectable-tree-view/dist/SelectableTree.css';
 function MyComponent() {
   const [config, setConfig] = useState({ enabled: [], disabled: [] });
   const [items, setItems] = useState([
-    { id: '1', parentId: 'root', title: 'Root' },
+    { id: '1', parentId: null, title: 'Root' },
     { id: '2', parentId: '1', title: 'Child 1' },
     { id: '3', parentId: '1', title: 'Child 2' },
   ]);
@@ -157,7 +157,7 @@ Check if an item is a root item.
 
 ## Constants
 
-- **`ROOT_PARENT_ID`**: `'root'` - The parentId value for root items
+- **`ROOT_PARENT_ID`**: `null` - The parentId value for root items (items without a parent)
 - **`CONFIG_DEBOUNCE_MS`**: `100` - Debounce delay for config changes (ms)
 
 ## Architecture

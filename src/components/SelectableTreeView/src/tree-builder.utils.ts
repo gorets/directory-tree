@@ -42,7 +42,7 @@ export function buildGenericTree<T extends { id: string; parentId?: string | nul
 
   items.forEach((item) => {
     const itemWithChildren = itemsMap.get(item.id)!;
-    const isRootItem = !item.parentId || item.parentId === 'root';
+    const isRootItem = !item.parentId;
 
     if (isRootItem) {
       rootItems.push(itemWithChildren);

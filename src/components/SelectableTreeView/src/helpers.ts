@@ -3,7 +3,7 @@
  */
 
 // Constants
-export const ROOT_PARENT_ID = 'root';
+export const ROOT_PARENT_ID = null;
 export const CONFIG_DEBOUNCE_MS = 100;
 
 /**
@@ -22,11 +22,11 @@ export function getParentId(item: any): string | null {
 }
 
 /**
- * Check if an item is a root item
+ * Check if an item is a root item (has no parent)
  */
 export function isRootItem(item: any): boolean {
   const parentId = getParentId(item);
-  return parentId === ROOT_PARENT_ID || parentId === null;
+  return parentId === null;
 }
 
 /**
@@ -34,7 +34,7 @@ export function isRootItem(item: any): boolean {
  */
 export function getChildrenFromFlat<T>(
   items: T[],
-  parentId: string
+  parentId: string | null
 ): T[] {
   return items.filter(item => {
     const itemParentId = getParentId(item);

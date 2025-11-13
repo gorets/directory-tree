@@ -84,7 +84,7 @@ function App() {
             // spaces: true,
             pages: {
               spaceId: spaceId,
-              parentId: parentId !== 'root' ? parentId : null,
+              parentId: parentId,
               parentPages,
             }
           }

@@ -69,13 +69,13 @@ export function SelectableTreeWithConfig<T>({
   const isApplyingConfig = useRef(false);
 
   // Track which parentIds we already requested to avoid duplicate loads
-  const loadedParentsRef = useRef<Set<string>>(new Set());
+  const loadedParentsRef = useRef<Set<string | null>>(new Set());
 
   // Track previous config to avoid unnecessary onConfigChange calls
   const previousConfigRef = useRef<TreeSyncConfig | null>(null);
 
   // Normalized function to call when children need to be loaded
-  const callLoad = useCallback((parentId: string = 'root') => {
+  const callLoad = useCallback((parentId: string | null = null) => {
     const loader = onNodeLoad ?? onLoadNode;
     if (!loader) return;
     if (loadedParentsRef.current.has(parentId)) return;
@@ -175,7 +175,7 @@ export function SelectableTreeWithConfig<T>({
     const loader = onNodeLoad ?? onLoadNode;
     if (loader) {
       // Call to load root-level nodes
-      callLoad('root');
+      callLoad(null);
     }
   }, [callLoad, onLoadNode, onNodeLoad]);
 

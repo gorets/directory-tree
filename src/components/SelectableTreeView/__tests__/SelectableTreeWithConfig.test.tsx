@@ -11,10 +11,10 @@ interface TestItem {
 
 describe('SelectableTreeWithConfig', () => {
   const mockItems: TestItem[] = [
-    { id: '1', parentId: 'root', title: 'Parent 1' },
+    { id: '1', parentId: null, title: 'Parent 1' },
     { id: '1-1', parentId: '1', title: 'Child 1-1' },
     { id: '1-2', parentId: '1', title: 'Child 1-2' },
-    { id: '2', parentId: 'root', title: 'Parent 2' },
+    { id: '2', parentId: null, title: 'Parent 2' },
     { id: '2-1', parentId: '2', title: 'Child 2-1' },
   ];
 

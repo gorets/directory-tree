@@ -17,8 +17,8 @@ describe('tree-builder.utils', () => {
   describe('buildGenericTree', () => {
     it('should build tree from flat array', () => {
       const items = [
-        { id: '1', parentId: 'root', name: 'Parent 1' },
-        { id: '2', parentId: 'root', name: 'Parent 2' },
+        { id: '1', parentId: null, name: 'Parent 1' },
+        { id: '2', parentId: null, name: 'Parent 2' },
         { id: '1-1', parentId: '1', name: 'Child 1-1' },
         { id: '1-2', parentId: '1', name: 'Child 1-2' },
       ];
