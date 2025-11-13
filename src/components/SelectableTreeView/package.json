@@ -16,8 +16,7 @@
     "prepublishOnly": "npm run build",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
-    "publish": "npm run build && npm version patch && npm publish"
+    "test:coverage": "jest --coverage"
   },
   "keywords": [
     "react",

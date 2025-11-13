@@ -56,8 +56,10 @@ describe('tree-builder.utils', () => {
 
       const tree = buildGenericTree(items);
 
-      expect(tree).toHaveLength(1);
+      // Both items have non-existent parents, so both should be treated as roots
+      expect(tree).toHaveLength(2);
       expect(tree[0].id).toBe('1');
+      expect(tree[1].id).toBe('2');
     });
 
     it('should handle deeply nested structures', () => {

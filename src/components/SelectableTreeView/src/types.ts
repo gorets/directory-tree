@@ -41,8 +41,9 @@ export interface SelectableTreeProps<T> {
   /**
    * Optional callback to load children for a node.
    * If provided, expand button will always be shown.
+   * parentId is null for root nodes, string for specific nodes
    */
-  onLoadNode?: (parentId?: string) => Promise<any> | void;
+  onLoadNode?: (parentId?: string | null) => Promise<any> | void;
   /**
    * Set of node IDs currently loading
    */
@@ -58,12 +59,14 @@ export interface SelectableTreeWithConfigProps<T> {
   /**
    * Optional callback to load children for a given parent id.
    * If not supplied the component expects `items` to already contain full tree.
+   * parentId is null for root nodes, string for specific nodes
    */
-  onLoadNode?: (parentId?: string) => Promise<any> | void;
+  onLoadNode?: (parentId?: string | null) => Promise<any> | void;
   /**
    * Alias commonly used in callers: onNodeLoad
+   * parentId is null for root nodes, string for specific nodes
    */
-  onNodeLoad?: (parentId?: string) => Promise<any> | void;
+  onNodeLoad?: (parentId?: string | null) => Promise<any> | void;
   onConfigChange?: (config: TreeSyncConfig) => void;
   getId?: (item: T) => string;
   getTitle?: (item: T) => string;

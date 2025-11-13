@@ -27,6 +27,7 @@ export interface TreeItemWithChildren<T> extends TreeItem {
 /**
  * Build hierarchical tree structure from flat array of items with any structure
  * As long as items have id and parentId, this will work
+ * Items with no parentId or non-existent parentId are treated as root items
  */
 export function buildGenericTree<T extends { id: string; parentId?: string | null }>(
   items: T[]
@@ -50,6 +51,9 @@ export function buildGenericTree<T extends { id: string; parentId?: string | nul
       const parent = itemsMap.get(item.parentId);
       if (parent) {
         parent.children.push(itemWithChildren);
+      } else {
+        // Parent doesn't exist, treat as root
+        rootItems.push(itemWithChildren);
       }
     }
   });

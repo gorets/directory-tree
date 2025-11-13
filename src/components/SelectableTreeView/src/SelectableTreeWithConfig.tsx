@@ -80,7 +80,9 @@ export function SelectableTreeWithConfig<T>({
     if (!loader) return;
     if (loadedParentsRef.current.has(parentId)) return;
     try {
-      setLoadingNodes(prev => new Set(prev).add(parentId));
+      // For Set operations with null, we need to use a string key or keep null
+      const loadingKey = parentId ?? 'root';
+      setLoadingNodes(prev => new Set(prev).add(loadingKey));
       const res = loader(parentId);
       // If it returns a promise, mark as loaded when resolved (or mark immediately to prevent duplicates)
       loadedParentsRef.current.add(parentId);
@@ -89,7 +91,7 @@ export function SelectableTreeWithConfig<T>({
           .finally(() => {
             setLoadingNodes(prev => {
               const next = new Set(prev);
-              next.delete(parentId);
+              next.delete(loadingKey);
               return next;
             });
           })
@@ -101,7 +103,7 @@ export function SelectableTreeWithConfig<T>({
         // Sync result - immediately clear loading
         setLoadingNodes(prev => {
           const next = new Set(prev);
-          next.delete(parentId);
+          next.delete(loadingKey);
           return next;
         });
       }
@@ -110,7 +112,8 @@ export function SelectableTreeWithConfig<T>({
       loadedParentsRef.current.delete(parentId);
       setLoadingNodes(prev => {
         const next = new Set(prev);
-        next.delete(parentId);
+        const loadingKey = parentId ?? 'root';
+        next.delete(loadingKey);
         return next;
       });
       throw err;
@@ -157,7 +160,9 @@ export function SelectableTreeWithConfig<T>({
         }
       };
 
-      applyConfig(items, false);
+      // Start from root items only
+      const rootItems = getRootItems(items);
+      applyConfig(rootItems, false);
       setCheckedItems(checked);
       setExplicitActions(actions);
 
