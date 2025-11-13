@@ -59,7 +59,7 @@ function MyComponent() {
 
 - **`items`**: `T[]` - Flat array of tree items with `parentId` references
 - **`config`**: `TreeSyncConfig` - Config object with `enabled` and `disabled` arrays
-- **`onConfigChange`**: `(config: TreeSyncConfig) => void` - Called when user toggles items
+- **`onConfigChange`**: `(config: TreeSyncConfig) => void` - Called when config actually changes (debounced, change-detected)
 
 #### Optional
 
@@ -198,6 +198,7 @@ SelectableTreeView/
 - ✅ Memoizes expensive calculations (`useMemo`)
 - ✅ Stable callback references (`useCallback`)
 - ✅ Debounces config change notifications
+- ✅ Detects config changes before calling `onConfigChange` (prevents unnecessary updates)
 - ✅ Prevents duplicate API calls with `loadedParentsRef`
 - ✅ Only calculates states for visible tree nodes
 

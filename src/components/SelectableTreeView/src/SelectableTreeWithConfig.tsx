@@ -71,6 +71,9 @@ export function SelectableTreeWithConfig<T>({
   // Track which parentIds we already requested to avoid duplicate loads
   const loadedParentsRef = useRef<Set<string>>(new Set());
 
+  // Track previous config to avoid unnecessary onConfigChange calls
+  const previousConfigRef = useRef<TreeSyncConfig | null>(null);
+
   // Normalized function to call when children need to be loaded
   const callLoad = useCallback((parentId: string = 'root') => {
     const loader = onNodeLoad ?? onLoadNode;
@@ -217,7 +220,22 @@ export function SelectableTreeWithConfig<T>({
   }, [items, checkedItems, getId]);
 
   /**
+   * Check if config has actually changed
+   */
+  const hasConfigChanged = useCallback((newConfig: TreeSyncConfig, prevConfig: TreeSyncConfig | null): boolean => {
+    if (!prevConfig) return true;
+
+    const enabledChanged = newConfig.enabled.length !== prevConfig.enabled.length ||
+      newConfig.enabled.some((id, i) => id !== prevConfig.enabled[i]);
+    const disabledChanged = newConfig.disabled.length !== prevConfig.disabled.length ||
+      newConfig.disabled.some((id, i) => id !== prevConfig.disabled[i]);
+
+    return enabledChanged || disabledChanged;
+  }, []);
+
+  /**
    * Notify parent of config changes with debouncing
+   * Only calls onConfigChange if config actually changed
    */
   const onConfigChangeRef = useRef(onConfigChange);
   onConfigChangeRef.current = onConfigChange;
@@ -239,7 +257,12 @@ export function SelectableTreeWithConfig<T>({
       // Debounce config changes to avoid excessive updates
       debouncedNotifyConfigChange.current = setTimeout(() => {
         const newConfig = generateMinimalConfig(explicitActions);
-        onConfigChangeRef.current?.(newConfig);
+
+        // Only call onConfigChange if config actually changed
+        if (hasConfigChanged(newConfig, previousConfigRef.current)) {
+          previousConfigRef.current = newConfig;
+          onConfigChangeRef.current?.(newConfig);
+        }
       }, CONFIG_DEBOUNCE_MS);
     }
 
@@ -248,7 +271,7 @@ export function SelectableTreeWithConfig<T>({
         clearTimeout(debouncedNotifyConfigChange.current);
       }
     };
-  }, [explicitActions]);
+  }, [explicitActions, hasConfigChanged]);
 
   /**
    * Handle checkbox toggle for an item

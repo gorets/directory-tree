@@ -384,4 +384,86 @@ describe('SelectableTreeWithConfig', () => {
 
     jest.useRealTimers();
   });
+
+  it('should not call onConfigChange if config has not changed', async () => {
+    jest.useFakeTimers();
+    const onConfigChange = jest.fn();
+    const user = userEvent.setup({ delay: null });
+
+    const config: TreeSyncConfig = {
+      enabled: ['1'],
+      disabled: [],
+    };
+
+    render(
+      <SelectableTreeWithConfig
+        {...defaultProps}
+        config={config}
+        onConfigChange={onConfigChange}
+      />
+    );
+
+    // Wait for initial render
+    jest.advanceTimersByTime(150);
+
+    // Clear any initial calls
+    onConfigChange.mockClear();
+
+    // Toggle item on, then off (back to original state)
+    const checkbox = screen.getByRole('checkbox', { name: /parent 1/i });
+
+    // First toggle off
+    await user.click(checkbox);
+    jest.advanceTimersByTime(150);
+
+    // Should have been called once
+    expect(onConfigChange).toHaveBeenCalledTimes(1);
+    expect(onConfigChange.mock.calls[0][0].disabled).toContain('1');
+
+    onConfigChange.mockClear();
+
+    // Toggle back on to original state
+    await user.click(checkbox);
+    jest.advanceTimersByTime(150);
+
+    // Should be called with original config
+    await waitFor(() => {
+      expect(onConfigChange).toHaveBeenCalledTimes(1);
+      expect(onConfigChange.mock.calls[0][0].enabled).toContain('1');
+      expect(onConfigChange.mock.calls[0][0].disabled).toEqual([]);
+    });
+
+    jest.useRealTimers();
+  });
+
+  it('should not call onConfigChange on subsequent renders with same config', async () => {
+    jest.useFakeTimers();
+    const onConfigChange = jest.fn();
+
+    const { rerender } = render(
+      <SelectableTreeWithConfig
+        {...defaultProps}
+        onConfigChange={onConfigChange}
+      />
+    );
+
+    jest.advanceTimersByTime(150);
+
+    const initialCallCount = onConfigChange.mock.calls.length;
+
+    // Rerender with same props
+    rerender(
+      <SelectableTreeWithConfig
+        {...defaultProps}
+        onConfigChange={onConfigChange}
+      />
+    );
+
+    jest.advanceTimersByTime(150);
+
+    // Should not call onConfigChange again
+    expect(onConfigChange).toHaveBeenCalledTimes(initialCallCount);
+
+    jest.useRealTimers();
+  });
 });

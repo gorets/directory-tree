@@ -140,19 +140,6 @@ function App() {
     });
   }
 
-  function updateConfigIfItWasChanged(config: TreeSyncConfig) {
-    console.log('Config was changed:', config);
-
-    const enabledChanged = config.enabled.length !== treeConfig.enabled.length ||
-      config.enabled.some((id, i) => id !== treeConfig.enabled[i]);
-    const disabledChanged = config.disabled.length !== treeConfig.disabled.length ||
-      config.disabled.some((id, i) => id !== treeConfig.disabled[i]);
-
-    if (enabledChanged || disabledChanged) {
-      setTreeConfig(config);
-    }
-  }
-
   return (
     <>
       <div style={{
@@ -173,9 +160,7 @@ function App() {
             items={pages}
             config={treeConfig}
             onNodeLoad={fetchTreeNode}
-            onConfigChange={(config) => {
-              updateConfigIfItWasChanged(config);
-            }}
+            onConfigChange={setTreeConfig}
             renderTitle={(item: any, defaultTitle: string) => {
               return (
                 <>
